@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,22 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Styling/SlateStyle.h"
+
+class FCFEditorStyle {
+public:
+	static void Initialize();
+	static void Shutdown();
+	static void ReloadTextures();
+	static const ISlateStyle& Get();
+
+	static FName GetStyleSetName();
+
+private:
+	static TSharedRef<class FSlateStyleSet> Create();
+	static TSharedPtr<class FSlateStyleSet> StyleInstance;
+};

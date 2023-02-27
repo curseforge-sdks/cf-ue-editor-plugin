@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,37 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+#include "CoreMinimal.h"
+#include "macros.h"
+#include "authentication_provider.h"
+
+namespace cfeditor {
+
+class IAuthenticationProviderDelegate;
+
+// Implements Steam silent authentication.
+//
+// To use this class, you'll need to:
+// 1. Setup you Steam 'Encrypted App Ticket Key' in your game's authentication
+// section on https://console.curseforge.com
+// 2. Edit cfeditor.Build.cs and "OnlineSubsystemSteam" to the
+// PrivateDependencyModuleNames
+// 3. Follow instructions on: https://docs.unrealengine.com/4.27/en-US/ProgrammingAndScripting/Online/Steam/
+class AuthenticationProviderSteamImpl : public IAuthenticationProvider {
+public:
+  AuthenticationProviderSteamImpl(IAuthenticationProviderDelegate* InDelegate);
+
+// IAuthenticationProvider
+public:
+  virtual void LoginAsync() override;
+
+private:
+  DISALLOW_IMPLICIT_CONSTRUCTORS(AuthenticationProviderSteamImpl);
+
+  IAuthenticationProviderDelegate* Delegate_;
+};
+
+}; // namespace cfeditor

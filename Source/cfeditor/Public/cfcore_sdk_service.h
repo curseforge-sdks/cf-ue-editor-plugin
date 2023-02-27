@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,38 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+#include "CoreMinimal.h"
+#include "macros.h"
+#include <api/models/category.h>
+
+namespace cfeditor {
+
+class ICFCoreSdkServiceDelegate;
+
+// This class is a simplified wrapper above the CFCore SDK
+class CFCoreSdkService {
+public:
+  CFCoreSdkService(ICFCoreSdkServiceDelegate* InDelegate);
+
+public:
+  void InitializeAsync();
+  bool RetrieveCategoriesAsync();
+  bool AuthenticateByExternalProviderAsync(ECFCoreExternalAuthProvider Provider,
+                                           const FString& Token);
+
+  bool IsUserAuthenticated();
+  void Uninitialize();
+
+private:
+  void HandleRetrieveCategoriesResults(TOptional<TArray<FCategory>> OptCategories);
+
+private:
+  DISALLOW_IMPLICIT_CONSTRUCTORS(CFCoreSdkService);
+
+  ICFCoreSdkServiceDelegate* Delegate_;
+};
+
+}; // namespace cfeditor

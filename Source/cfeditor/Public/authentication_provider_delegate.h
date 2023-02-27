@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,19 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+#include "CoreMinimal.h"
+#include <api/models/enums/external_auth_provider.h>
+
+namespace cfeditor {
+
+class IAuthenticationProviderDelegate {
+public:
+  virtual void OnAuthenticationToken(ECFCoreExternalAuthProvider Provider,
+                                     const FString& Token) = 0;
+  virtual void OnAuthenticationError(const FText& ErrorMessage) = 0;
+};
+
+}; // namespace cfeditor

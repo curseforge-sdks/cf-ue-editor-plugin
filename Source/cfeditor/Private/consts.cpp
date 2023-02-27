@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,13 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#include "consts.h"
+
+namespace cfeditor {
+
+const int64 kCFGameId = 0;
+const TCHAR kCFApiKey[] = TEXT("");
+const TCHAR kGameName[] = TEXT("");
+
+}; // namespace cfeditor {

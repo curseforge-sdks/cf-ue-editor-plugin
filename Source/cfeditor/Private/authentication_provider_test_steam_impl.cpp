@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,22 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#include "authentication_provider_test_steam_impl.h"
+#include "authentication_provider_delegate.h"
+
+using namespace cfeditor;
+
+// Set your Steam token here (base64)
+const TCHAR kHardCodedSteamTokenBase64[] = TEXT("");
+
+AuthenticationProviderTestSteamImpl::AuthenticationProviderTestSteamImpl(
+	IAuthenticationProviderDelegate* InDelegate) : Delegate_(InDelegate) {
+}
+
+// IAuthenticationProvider
+void AuthenticationProviderTestSteamImpl::LoginAsync() {
+	Delegate_->OnAuthenticationToken(
+		ECFCoreExternalAuthProvider::Steam,
+		kHardCodedSteamTokenBase64);
+}

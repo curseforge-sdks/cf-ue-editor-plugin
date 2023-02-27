@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,28 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+namespace cfeditor {
+
+#ifndef DISALLOW_COPY_AND_ASSIGN
+
+#define DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName&) = delete;    \
+  void operator=(const TypeName&) = delete; \
+
+#endif
+
+  // Disallow copying a type, and only provide move construction and move
+  // assignment. Especially useful for move-only structs.
+#define MOVE_ONLY_NO_DEFAULT_CONSTRUCTOR(TypeName)       \
+  TypeName(TypeName&&) = default;            \
+  TypeName& operator=(TypeName&&) = default;
+
+#define DISALLOW_IMPLICIT_CONSTRUCTORS(TypeName) \
+  TypeName() = delete; \
+  MOVE_ONLY_NO_DEFAULT_CONSTRUCTOR(TypeName); \
+  DISALLOW_COPY_AND_ASSIGN(TypeName);
+
+}; // namespace cfeditor

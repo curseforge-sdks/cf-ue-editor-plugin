@@ -1,4 +1,5 @@
-MIT License
+// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +19,26 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+#include "cfeditor_style.h"
+
+// -----------------------------------------------------------------------------
+class FCFEditorCommands : public TCommands<FCFEditorCommands> {
+public:
+	FCFEditorCommands() : TCommands<FCFEditorCommands>(
+		TEXT("cfeditor"),
+		NSLOCTEXT("Contexts", "cfeditor", "cfeditor Plugin"),
+		NAME_None,
+		FCFEditorStyle::GetStyleSetName()) {
+	}
+
+	// TCommands<> interface
+	virtual void RegisterCommands() override;
+
+public:
+	TSharedPtr<FUICommandInfo> ShareUGC;
+};

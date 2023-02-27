@@ -1,4 +1,4 @@
-MIT License
+/*MIT License
 
 Copyright (c) 2022 Overwolf Ltd.
 
@@ -18,4 +18,27 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SOFTWARE.*/
+#pragma once
+
+#include "CoreMinimal.h"
+#include <common/cfcore_error.h>
+#include <api/models/category.h>
+
+namespace cfeditor {
+
+// Inherit and implement this delegate to get events from async functions
+class ICFCoreSdkServiceDelegate {
+public:
+  virtual void OnCFCoreSdkInitialized() = 0;
+  virtual void OnCFCoreSdkInitializationError(const FCFCoreError& Error) = 0;
+
+	virtual void OnCFCoreSdkRetrieveCategoriesResult(
+		TArray<FCategory>&& RootCategories,
+		TMap<int64, TArray<FCategory>>&& Categories) = 0;
+
+  virtual void OnCFCoreSdkAuthorized() = 0;
+  virtual void OnCFCoreSdkAuthorizationFailed(const FCFCoreError& Error) = 0;
+};
+
+}; // namespace cfeditor
