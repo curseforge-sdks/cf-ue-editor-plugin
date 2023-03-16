@@ -39,6 +39,7 @@ SOFTWARE.*/
 #include "cfcore_sdk_service.h"
 #include "authentication_provider_steam_impl.h"
 #include "authentication_provider_test_steam_impl.h"
+#include "consts.h"
 
 using namespace cfeditor;
 
@@ -146,8 +147,16 @@ void FCFEditorModule::FindAvailableGameMods(TArray<TSharedRef<IPlugin>>& OutAvai
 }
 
 void FCFEditorModule::OpenWindow() {
-	FString Resource = FString::Printf(TEXT("EditorUtilityWidgetBlueprint'/%s/ModUploadWindow/ModUploadWindow.ModUploadWindow"), TEXT(UE_PLUGIN_NAME));
+	TCHAR* id = TEXT("ModUploadWindow/ModUploadWindow.ModUploadWindow");
+
+#if ENGINE_MAJOR_VERSION >= 5
+	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
+	FSoftObjectPath ItemRef = Resource;
+#else
+	FString Resource = FString::Printf(TEXT("EditorUtilityWidgetBlueprint'/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
 	FStringAssetReference ItemRef = Resource;
+#endif
+
 	ItemRef.TryLoad();
 
 	UObject* ItemClass = ItemRef.ResolveObject();
@@ -194,12 +203,29 @@ void FCFEditorModule::InitializeCommandButton() {
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 
+	// NOTE(twolf): Extending the toolbar seems to no longer work on UE5
 	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-	ToolbarExtender->AddToolBarExtension("Misc", EExtensionHook::After, PluginCommands_, FToolBarExtensionDelegate::CreateRaw(this, &FCFEditorModule::AddToolbarExtension));
+	ToolbarExtender->AddToolBarExtension(
+		"Misc",
+		EExtensionHook::After,
+		PluginCommands_,
+		FToolBarExtensionDelegate::CreateRaw(this, &FCFEditorModule::AddToolbarExtension));
 	LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
+
+#if ENGINE_MAJOR_VERSION >= 5
+	// NOTE(twolf): IN UE5 we'll extend the top menu bar
+	TSharedPtr<FExtender> MenuBarExtender = MakeShareable(new FExtender);
+	MenuBarExtender->AddMenuBarExtension(
+		"Help",
+		EExtensionHook::Before,
+		PluginCommands_,
+		FMenuBarExtensionDelegate::CreateRaw(this, &FCFEditorModule::AddPullDownMenu)
+	);
+	LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuBarExtender);
+#endif
 }
 
-bool FCFEditorModule::Enabled_CF_ToolbarButton() {
+bool FCFEditorModule::Enabled_ShareUGC() {
 	bool IsLoggedIn = CFCoreSdkService_->IsUserAuthenticated();
 	return IsLoggedIn && GetNumAvailableGameMods();
 }
@@ -210,13 +236,35 @@ void FCFEditorModule::MapCommands() {
 	PluginCommands_->MapAction(
     FCFEditorCommands::Get().ShareUGC,
     FExecuteAction::CreateRaw(this, &FCFEditorModule::OpenWindow),
-    FCanExecuteAction::CreateRaw(this, &FCFEditorModule::Enabled_CF_ToolbarButton));
+    FCanExecuteAction::CreateRaw(this, &FCFEditorModule::Enabled_ShareUGC));
 }
 
 void FCFEditorModule::AddToolbarExtension(FToolBarBuilder& Builder) {
 	Builder.AddToolBarButton(FCFEditorCommands::Get().ShareUGC);
 }
 
+void FCFEditorModule::AddPullDownMenu(FMenuBarBuilder& MenuBuilder) {
+	MenuBuilder.AddPullDownMenu(
+		FText::FromString(kUIMenuBarLabel),
+		FText::FromString(kUIMenuBarTooltip),
+		FNewMenuDelegate::CreateRaw(this, &FCFEditorModule::FillMenu),
+		"Custom"
+	);
+}
+
+void FCFEditorModule::FillMenu(FMenuBuilder& MenuBuilder) {
+	MenuBuilder.BeginSection(kUIMenuBarLabel);
+	{
+		MenuBuilder.AddMenuEntry(
+			FCFEditorCommands::Get().ShareUGC,
+			NAME_None,
+			FText::FromString(kUIMenuEntryLabel),
+			FText::FromString(kUIMenuEntryTooltip),
+			FSlateIcon()
+		);
+	}
+	MenuBuilder.EndSection();
+}
 #undef LOCTEXT_NAMESPACE
 
 IMPLEMENT_MODULE(FCFEditorModule, cfeditor)

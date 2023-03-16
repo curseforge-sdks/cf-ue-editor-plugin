@@ -62,10 +62,12 @@ private:
 	void InitializeCommandButton();
 
 	/** Returns true if the toolbar button is enabled (user must be logged in) */
-	bool Enabled_CF_ToolbarButton();
+	bool Enabled_ShareUGC();
 
 	void MapCommands();
 	void AddToolbarExtension(FToolBarBuilder& Builder);
+	void AddPullDownMenu(FMenuBarBuilder& MenuBuilder);
+	void FillMenu(FMenuBuilder& MenuBuilder);
 
 private:
 	TSharedPtr<class FUICommandList> PluginCommands_;

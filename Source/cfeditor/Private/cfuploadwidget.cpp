@@ -173,29 +173,32 @@ void UCFUploadWidget::PackageModWithSettings(
     PackagingText,
     PackagingText,
     FCFEditorStyle::Get().GetBrush(TEXT("cfeditor.ShareUGC")),
-      [=](FString TaskResult, double TimeSec) {
-        AsyncTask(ENamedThreads::GameThread, [=]() {
-          if (TaskResult == "Completed") {
-            for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-              const FCFModData ModData = GetPluginData(AvailableMod);
-              if (ModData.Id == ModID) {
-                FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
-                Descriptor.Version = Descriptor.Version++;
-                Descriptor.VersionName = FGuid::NewGuid().ToString();
-                Descriptor.Category = "UGC";
-                if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
-                  return;
-                }
+#if ENGINE_MAJOR_VERSION >= 5
+    nullptr,
+#endif
+    [=](FString TaskResult, double TimeSec) {
+      AsyncTask(ENamedThreads::GameThread, [=]() {
+        if (TaskResult == "Completed") {
+          for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
+           const FCFModData ModData = GetPluginData(AvailableMod);
+           if (ModData.Id == ModID) {
+             FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
+             Descriptor.Version = Descriptor.Version++;
+             Descriptor.VersionName = FGuid::NewGuid().ToString();
+             Descriptor.Category = "UGC";
+             if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
+               return;
+             }
 
-                SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
-                return;
-              }
+             SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
+             return;
             }
-          } else {
-            ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
-            OnModPackagingFailed();
           }
-        });
+        } else {
+          ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
+          OnModPackagingFailed();
+        }
+      });
     });
 }
 
@@ -356,26 +359,31 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
 
   BuildPlatforms.RemoveAtSwap(0);
   const FText PackagingText = FText::Format(LOCTEXT("SimpleUGCEditor_PackagePluginTaskName", "Packaging {0}"), FText::FromString(Plugin->GetName()));
-  IUATHelperModule::Get().CreateUatTask(CommandLine, PlatformName, PackagingText, PackagingText, FCFEditorStyle::Get().GetBrush(TEXT("cfeditor.ShareUGC")),
-    [this, Plugin, OutputDirectory, BuildPlatforms](FString TaskResult, double TimeSec)
-    {
-      AsyncTask(ENamedThreads::GameThread, [this, TaskResult, Plugin, OutputDirectory, BuildPlatforms]()
-        {
-          if (TaskResult == "Completed")
-          {
-            if (BuildPlatforms.Num())
-            {
-              PackagePlugin(Plugin, OutputDirectory, const_cast<TArray<FCModPlatformData>&>(BuildPlatforms));
-            }
-            else
-            {
-              ArchivePlugin(OutputDirectory);
-            }
+  IUATHelperModule::Get().CreateUatTask(
+    CommandLine,
+    PlatformName,
+    PackagingText,
+    PackagingText,
+    FCFEditorStyle::Get().GetBrush(TEXT("cfeditor.ShareUGC")),
+#if ENGINE_MAJOR_VERSION >= 5
+    nullptr,
+#endif
+    [this, Plugin, OutputDirectory, BuildPlatforms](FString TaskResult, double TimeSec) {
+      AsyncTask(ENamedThreads::GameThread, [this, TaskResult, Plugin, OutputDirectory, BuildPlatforms]() {
+        if (TaskResult == "Completed") {
+          if (BuildPlatforms.Num()) {
+            PackagePlugin(
+              Plugin,
+              OutputDirectory,
+              const_cast<TArray<FCModPlatformData>&>(BuildPlatforms));
+          } else {
+            ArchivePlugin(OutputDirectory);
           }
-          else
-          {
-            ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
-            OnModPackagingFailed();
+        } else {
+          ShowConfirmationDialog(
+            LOCTEXT("buildfailtitle", "Couldn't Build UGC"),
+            LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
+          OnModPackagingFailed();
           }
         });
     });
@@ -392,14 +400,17 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory) {
     PackagingText,
     PackagingText,
     FCFEditorStyle::Get().GetBrush(TEXT("cfeditor.ShareUGC")),
+#if ENGINE_MAJOR_VERSION >= 5
+    nullptr,
+#endif
     [this, OutputDirectory](FString TaskResult, double TimeSec) {
       AsyncTask(ENamedThreads::GameThread, [this, TaskResult, OutputDirectory]() {
-          if (TaskResult == "Completed") {
-            OnModPackagingComplete();
-          } else {
-            ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Archive UGC"), LOCTEXT("buildfail", "Your ugc failed to archive. Please check the output log for more information."));
-            OnModPackagingFailed();
-          }
-        });
+        if (TaskResult == "Completed") {
+          OnModPackagingComplete();
+        } else {
+          ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Archive UGC"), LOCTEXT("buildfail", "Your ugc failed to archive. Please check the output log for more information."));
+          OnModPackagingFailed();
+        }
+      });
     });
 }
