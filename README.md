@@ -15,4 +15,10 @@ in the plugins directory. Contact us to get access.
 - Review *cfcore_sdk_service.cpp* - |InitializeAsync| and make sure the settings
 are appropriate for your game editor
 - Edit *cfeditor_module.cpp* - |StartupModule| and make sure you start an
-appropriate AuthenticationProvider (we currently support Steam)
+appropriate AuthenticationProvider (we currently support St
+
+## Packaging
+
+Right now the plugin runs a "PackageUGC" command for packaging, however, this
+utility is not included in this repository - you'll need to chagne the command
+or add your own PackageUGC utility.
