@@ -29,4 +29,9 @@ const extern int64 kCFGameId;
 extern const TCHAR kCFApiKey[];
 extern const TCHAR kGameName[];
 
+extern const TCHAR kUIMenuBarLabel[];
+extern const TCHAR kUIMenuBarTooltip[];
+extern const TCHAR kUIMenuEntryLabel[];
+extern const TCHAR kUIMenuEntryTooltip[];
+
 }; // namespace cfeditor

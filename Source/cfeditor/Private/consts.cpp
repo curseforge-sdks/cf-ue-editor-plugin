@@ -28,4 +28,9 @@ const int64 kCFGameId = 0;
 const TCHAR kCFApiKey[] = TEXT("");
 const TCHAR kGameName[] = TEXT("");
 
+const TCHAR kUIMenuBarLabel[] = TEXT("UGC");
+const TCHAR kUIMenuBarTooltip[] = TEXT("User Generated Content");
+const TCHAR kUIMenuEntryLabel[] = TEXT("Share UGC");
+const TCHAR kUIMenuEntryTooltip[] = TEXT("Upload UGC to CurseForge");
+
 }; // namespace cfeditor {
