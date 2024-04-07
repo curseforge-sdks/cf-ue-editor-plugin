@@ -70,7 +70,8 @@ public class cfeditor : ModuleRules {
         "UMGEditor",
         "Blutility",
         "UMG",
-        "DesktopPlatform"
+        "DesktopPlatform",
+        "UATHelper",
 				// ... add private dependencies that you statically link with here ...
 			}
       );

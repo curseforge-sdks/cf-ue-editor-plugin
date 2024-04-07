@@ -45,7 +45,7 @@ void CFCoreSdkService::InitializeAsync() {
 
 	CFCoreContext::GetInstance()->Initialize(
 		Settings,
-		ICFCore::FInitializeDelegate::CreateLambda([=](
+		ICFCore::FInitializeDelegate::CreateLambda([this](
 			TOptional<FCFCoreError> OptError) {
 				if (!OptError.IsSet()) {
 					Delegate_->OnCFCoreSdkInitialized();
@@ -76,12 +76,12 @@ bool CFCoreSdkService::RetrieveCategoriesAsync() {
 	CFCoreContext::GetInstance()->Api()->GetCategories(
 		Filter,
 		ICFCoreApi::FGetCategoriesDelegate::CreateLambda(
-			[=](TOptional<TArray<FCategory>> OptCategories,
+			[this](TOptional<TArray<FCategory>> OptCategories,
 					const TOptional<FCFCoreApiResponseError>& OptError) {
 
 				if (OptError.IsSet()) {
-					TCHAR Msg[] = TEXT("[CFCore] Failed to fetch categories for title - msg '%s'");
-					UE_LOG(LogTemp, Error, Msg, *OptError->description);
+					// TCHAR Msg[] = TEXT("[CFCore] Failed to fetch categories for title - msg '%s'");
+					UE_LOG(LogTemp, Error, TEXT("[CFCore] Failed to fetch categories for title - msg '%s'"), *OptError->description);
 					return;
 				}
 
@@ -107,7 +107,7 @@ bool CFCoreSdkService::AuthenticateByExternalProviderAsync(
 		Token,
 		AuthInfo,
 		ICFCoreAuthentication::FGenerateAuthTokenDelegate::CreateLambda(
-			[=](const TOptional<FCFCoreError>& OptError) {
+			[this, Token](const TOptional<FCFCoreError>& OptError) {
 				if (OptError.IsSet()) {
 					UE_LOG(
 						LogTemp,
@@ -143,7 +143,7 @@ void CFCoreSdkService::Uninitialize() {
 		ICFCore::FUninitializeDelegate::CreateLambda(
 			[=](TOptional<FCFCoreError> OptError) {
 				if (OptError.IsSet()) {
-					TCHAR Msg[] = TEXT("[CFCore] Failed to uninitialize - msg '%s'");
+					const TCHAR Msg[] = TEXT("[CFCore] Failed to uninitialize - msg '%s'");
 					UE_LOG(LogTemp, Error, Msg, *OptError->description);
 				}
 

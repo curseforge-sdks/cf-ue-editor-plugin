@@ -147,7 +147,7 @@ void FCFEditorModule::FindAvailableGameMods(TArray<TSharedRef<IPlugin>>& OutAvai
 }
 
 void FCFEditorModule::OpenWindow() {
-	TCHAR* id = TEXT("ModUploadWindow/ModUploadWindow.ModUploadWindow");
+	const TCHAR id[] = TEXT("ModUploadWindow/ModUploadWindow.ModUploadWindow");
 
 #if ENGINE_MAJOR_VERSION >= 5
 	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);

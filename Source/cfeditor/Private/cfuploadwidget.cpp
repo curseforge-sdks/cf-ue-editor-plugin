@@ -23,18 +23,20 @@ SOFTWARE.*/
 #include "cfuploadwidget.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame/Public/Interfaces/IMainFrameModule.h"
+
+#include "Interfaces/IMainFrameModule.h"
+#include "EditorUtilitySubsystem.h"
+#include "IUATHelperModule.h"
+
 #include "Runtime/Core/Public/Modules/ModuleManager.h"
 #include "Widgets/SWindow.h"
 #include "Runtime/Core/Public/Misc/MessageDialog.h"
 #include "Runtime/Projects/Public/Interfaces/IPluginManager.h"
 #include "cfeditor_module.h"
 #include "FileHelpers.h"
-#include "UATHelper/Public/IUATHelperModule.h"
 #include "cfeditor_style.h"
 #include "Runtime/Core/Public/Async/Async.h"
 #include "cfcore_context.h"
-#include "Blutility/Public/EditorUtilitySubsystem.h"
 
 #define LOCTEXT_NAMESPACE "FCFEditorModule"
 
@@ -176,8 +178,13 @@ void UCFUploadWidget::PackageModWithSettings(
 #if ENGINE_MAJOR_VERSION >= 5
     nullptr,
 #endif
-    [=](FString TaskResult, double TimeSec) {
-      AsyncTask(ENamedThreads::GameThread, [=]() {
+    [this, OutAvailableGameMods, ModID, BuildPlatforms](FString TaskResult,
+                                                        double TimeSec) {
+      AsyncTask(ENamedThreads::GameThread, [this,
+                                            TaskResult,
+                                            OutAvailableGameMods,
+                                            ModID,
+                                            BuildPlatforms]() {
         if (TaskResult == "Completed") {
           for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
            const FCFModData ModData = GetPluginData(AvailableMod);

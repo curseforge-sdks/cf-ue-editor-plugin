@@ -68,7 +68,8 @@ void AuthenticationProviderSteamImpl::LoginAsync() {
 
 	UE_LOG_ONLINE(Log, TEXT("[CFCore] Attempting autologin with external credential type Steam"));
 	EncryptedAppTicketPtr->OnEncryptedAppTicketResultDelegate.AddLambda(
-		[=](bool bEncryptedDataAvailable, int32 ResultCode) {
+		[this, GenericError, EncryptedAppTicketPtr](bool bEncryptedDataAvailable,
+																								int32 ResultCode) {
 			if (!bEncryptedDataAvailable) {
 				Delegate_->OnAuthenticationError(FText::FromString(GenericError));
 				return;
