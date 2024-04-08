@@ -143,8 +143,11 @@ void CFCoreSdkService::Uninitialize() {
 		ICFCore::FUninitializeDelegate::CreateLambda(
 			[=](TOptional<FCFCoreError> OptError) {
 				if (OptError.IsSet()) {
-					const TCHAR Msg[] = TEXT("[CFCore] Failed to uninitialize - msg '%s'");
-					UE_LOG(LogTemp, Error, Msg, *OptError->description);
+					UE_LOG(
+						LogTemp,
+						Error,
+						TEXT("[CFCore] Failed to uninitialize - msg '%s'"),
+						*OptError->description);
 				}
 
 				Promise->SetValue(true);
