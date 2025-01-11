@@ -25,6 +25,7 @@ SOFTWARE.*/
 #include "CoreMinimal.h"
 #include "macros.h"
 #include <api/models/category.h>
+#include <api/models/enums/external_auth_provider.h>
 
 namespace cfeditor {
 

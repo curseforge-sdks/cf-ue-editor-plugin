@@ -40,6 +40,7 @@ SOFTWARE.*/
 #include "authentication_provider_steam_impl.h"
 #include "authentication_provider_test_steam_impl.h"
 #include "consts.h"
+#include "OnlineSubsystem.h"
 
 using namespace cfeditor;
 

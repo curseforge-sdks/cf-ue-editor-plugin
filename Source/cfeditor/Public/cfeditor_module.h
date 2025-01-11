@@ -30,9 +30,14 @@ SOFTWARE.*/
 class FToolBarBuilder;
 class FMenuBuilder;
 
+namespace cfeditor {
+class IAuthenticationProvider;
+class CFCoreSdkService;
+};
+
 class FCFEditorModule : public IModuleInterface,
-												public ICFCoreSdkServiceDelegate,
-												public IAuthenticationProviderDelegate {
+												public cfeditor::ICFCoreSdkServiceDelegate,
+												public cfeditor::IAuthenticationProviderDelegate {
 // IModuleInterface
 public:
 	virtual void StartupModule() override;
@@ -71,6 +76,6 @@ private:
 
 private:
 	TSharedPtr<class FUICommandList> PluginCommands_;
-	TSharedPtr<class IAuthenticationProvider> AuthenticationProvider_;
-	TSharedPtr<class CFCoreSdkService> CFCoreSdkService_;
+	TSharedPtr<cfeditor::IAuthenticationProvider> AuthenticationProvider_;
+	TSharedPtr<cfeditor::CFCoreSdkService> CFCoreSdkService_;
 };
