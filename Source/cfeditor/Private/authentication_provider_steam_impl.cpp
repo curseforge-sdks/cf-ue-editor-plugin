@@ -28,20 +28,29 @@ SOFTWARE.*/
 #include "OnlineSubsystemSteam.h"
 #include "OnlineEncryptedAppTicketInterfaceSteam.h"
 
+#include "cfcore_sdk_service.h"
+
 #include "consts.h"
 
 using namespace cfeditor;
 
-#define LOCTEXT_NAMESPACE "AuthenticationProviderSteamImpl"
+// #define LOCTEXT_NAMESPACE "AuthenticationProviderSteamImpl"
 
 const TCHAR kErrorSteamConnectFailureGeneric[] =
 	TEXT("Failed to authenticate with Steam. Please make sure that your client is logged in to an account that owns %s");
 
 AuthenticationProviderSteamImpl::AuthenticationProviderSteamImpl(
-	IAuthenticationProviderDelegate* InDelegate) : Delegate_(InDelegate) {
+	TSharedRef<CFCoreSdkService> InSdkService,
+	IAuthenticationProviderDelegate* InDelegate) :
+	SdkService_(InSdkService),
+	Delegate_(InDelegate) {
 }
 
 // IAuthenticationProvider
+bool AuthenticationProviderSteamImpl::IsUserAuthenticated() {
+	return SdkService_->IsUserAuthenticated();
+}
+
 void AuthenticationProviderSteamImpl::LoginAsync() {
 	const IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get("STEAM");
 	const IOnlineIdentityPtr OnlineIdentity = OnlineSub ?
@@ -86,8 +95,14 @@ void AuthenticationProviderSteamImpl::LoginAsync() {
 				EncryptedAppTicket.GetData(),
 				EncryptedAppTicket.Num());
 
-			Delegate_->OnAuthenticationToken(ECFCoreExternalAuthProvider::Steam,
-																			 EncodedToken);
+			bool Success = SdkService_->AuthenticateByExternalProviderAsync(
+				ECFCoreExternalAuthProvider::Steam,
+				EncodedToken);
+
+			if (!Success) {
+				Delegate_->OnAuthenticationError(
+					FText::FromString("Failed to Authenticate with Steam"));
+			}
 
 			EncryptedAppTicketPtr->OnEncryptedAppTicketResultDelegate.Clear();
 		});

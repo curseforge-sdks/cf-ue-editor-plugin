@@ -29,8 +29,6 @@ namespace cfeditor {
 
 class IAuthenticationProviderDelegate {
 public:
-  virtual void OnAuthenticationToken(ECFCoreExternalAuthProvider Provider,
-                                     const FString& Token) = 0;
   virtual void OnAuthenticationError(const FText& ErrorMessage) = 0;
 };
 

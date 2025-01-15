@@ -1,7 +1,6 @@
-// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
 /*MIT License
 
-Copyright (c) 2022 Overwolf Ltd.
+Copyright (c) 2024 Overwolf Ltd.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -31,18 +30,13 @@ namespace cfeditor {
 class CFCoreSdkService;
 class IAuthenticationProviderDelegate;
 
-// Implements Steam silent authentication.
-//
-// To use this class, you'll need to:
-// 1. Setup you Steam 'Encrypted App Ticket Key' in your game's authentication
-// section on https://console.curseforge.com
-// 2. Edit cfeditor.Build.cs and "OnlineSubsystemSteam" to the
-// PrivateDependencyModuleNames
-// 3. Follow instructions on: https://docs.unrealengine.com/4.27/en-US/ProgrammingAndScripting/Online/Steam/
-class AuthenticationProviderSteamImpl : public IAuthenticationProvider {
+// This is a two-step authentication provider that requires input from the
+// end-user (email address and then a code)
+class AuthenticationProviderEmailCodeImpl : public IAuthenticationProvider {
 public:
-  AuthenticationProviderSteamImpl(TSharedRef<CFCoreSdkService> InSdkService,
-                                  IAuthenticationProviderDelegate* InDelegate);
+  AuthenticationProviderEmailCodeImpl(
+    TSharedRef<CFCoreSdkService> InSdkService,
+    IAuthenticationProviderDelegate* InDelegate);
 
 // IAuthenticationProvider
 public:
@@ -50,7 +44,7 @@ public:
   virtual void LoginAsync() override;
 
 private:
-  DISALLOW_IMPLICIT_CONSTRUCTORS(AuthenticationProviderSteamImpl);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(AuthenticationProviderEmailCodeImpl);
 
   TSharedRef<CFCoreSdkService> SdkService_;
   IAuthenticationProviderDelegate* Delegate_;

@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.*/
 #include "authentication_provider_test_steam_impl.h"
 #include "authentication_provider_delegate.h"
+#include "cfcore_sdk_service.h"
 
 using namespace cfeditor;
 
@@ -29,12 +30,23 @@ using namespace cfeditor;
 const TCHAR kHardCodedSteamTokenBase64[] = TEXT("");
 
 AuthenticationProviderTestSteamImpl::AuthenticationProviderTestSteamImpl(
-	IAuthenticationProviderDelegate* InDelegate) : Delegate_(InDelegate) {
+	TSharedRef<CFCoreSdkService> InSdkService,
+	IAuthenticationProviderDelegate* InDelegate) : SdkService_(InSdkService),
+																								 Delegate_(InDelegate) {
 }
 
 // IAuthenticationProvider
+bool AuthenticationProviderTestSteamImpl::IsUserAuthenticated() {
+	return SdkService_->IsUserAuthenticated();
+}
+
 void AuthenticationProviderTestSteamImpl::LoginAsync() {
-	Delegate_->OnAuthenticationToken(
+	bool Success = SdkService_->AuthenticateByExternalProviderAsync(
 		ECFCoreExternalAuthProvider::Steam,
 		kHardCodedSteamTokenBase64);
+
+	if (!Success) {
+		Delegate_->OnAuthenticationError(
+			FText::FromString("Failed to Authenticate with Steam"));
+	}
 }

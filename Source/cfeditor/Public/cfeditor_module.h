@@ -38,6 +38,7 @@ class CFCoreSdkService;
 class FCFEditorModule : public IModuleInterface,
 												public cfeditor::ICFCoreSdkServiceDelegate,
 												public cfeditor::IAuthenticationProviderDelegate {
+
 // IModuleInterface
 public:
 	virtual void StartupModule() override;
@@ -53,7 +54,6 @@ public:
 
 // IAuthenticationProviderDelegate
 public:
-	virtual void OnAuthenticationToken(ECFCoreExternalAuthProvider Provider, const FString& Token) override;
 	virtual void OnAuthenticationError(const FText& ErrorMsg) override;
 
 public:

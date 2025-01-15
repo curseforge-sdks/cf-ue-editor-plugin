@@ -55,9 +55,13 @@ void FCFEditorModule::StartupModule() {
 	RegisterStyles();
 	InitializeCommandButton();
 
-	// AuthenticationProvider_ = MakeShareable(new AuthenticationProviderSteamImpl(this));
-	AuthenticationProvider_ = MakeShareable(new AuthenticationProviderTestSteamImpl(this));
-	CFCoreSdkService_ = MakeShareable(new CFCoreSdkService(this));
+	CFCoreSdkService_ = MakeShared<CFCoreSdkService>(this);
+
+	// AuthenticationProvider_ = MakeShared<AuthenticationProviderSteamImpl>(this);
+	AuthenticationProvider_ =
+		MakeShared<AuthenticationProviderTestSteamImpl>(
+			CFCoreSdkService_.ToSharedRef(),
+			this);
 
 	CFCoreSdkService_->InitializeAsync();
 }
@@ -117,18 +121,6 @@ void FCFEditorModule::OnCFCoreSdkAuthorizationFailed(const FCFCoreError& Error) 
 		FText::FromString(FString::FromInt((int32)Error.code)),
 		FText::FromString(Error.description));
 	FMessageDialog::Open(EAppMsgType::Ok, Msg);
-}
-
-// IAuthenticationProvider
-void FCFEditorModule::OnAuthenticationToken(ECFCoreExternalAuthProvider Provider,
-																						const FString& Token) {
-	bool Success =
-		CFCoreSdkService_->AuthenticateByExternalProviderAsync(Provider, Token);
-
-	if (!Success) {
-		FText Msg = LOCTEXT("CFCoreAuthFailure", "Failed to Authenticate with CFCore");
-		FMessageDialog::Open(EAppMsgType::Ok, Msg);
-	}
 }
 
 // IAuthenticationProvider
@@ -227,7 +219,7 @@ void FCFEditorModule::InitializeCommandButton() {
 }
 
 bool FCFEditorModule::Enabled_ShareUGC() {
-	bool IsLoggedIn = CFCoreSdkService_->IsUserAuthenticated();
+	bool IsLoggedIn = AuthenticationProvider_->IsUserAuthenticated();
 	return IsLoggedIn && GetNumAvailableGameMods();
 }
 

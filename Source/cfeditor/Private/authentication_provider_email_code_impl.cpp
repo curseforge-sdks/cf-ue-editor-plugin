@@ -1,7 +1,6 @@
-// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
 /*MIT License
 
-Copyright (c) 2022 Overwolf Ltd.
+Copyright (c) 2024 Overwolf Ltd.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,34 +19,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.*/
-#pragma once
+#include "authentication_provider_email_code_impl.h"
+#include "authentication_provider_delegate.h"
+#include "cfcore_sdk_service.h"
 
-#include "CoreMinimal.h"
-#include "macros.h"
-#include "authentication_provider.h"
+using namespace cfeditor;
 
-namespace cfeditor {
-
-class CFCoreSdkService;
-class IAuthenticationProviderDelegate;
-
-// Use this for testing - it can contain a hardcoded Steam token
-class AuthenticationProviderTestSteamImpl : public IAuthenticationProvider {
-public:
-  AuthenticationProviderTestSteamImpl(
-    TSharedRef<CFCoreSdkService> InSdkService,
-    IAuthenticationProviderDelegate* InDelegate);
+AuthenticationProviderEmailCodeImpl::AuthenticationProviderEmailCodeImpl(
+	TSharedRef<CFCoreSdkService> InSdkService,
+	IAuthenticationProviderDelegate* InDelegate) : SdkService_(InSdkService),
+																								 Delegate_(InDelegate) {
+}
 
 // IAuthenticationProvider
-public:
-  virtual bool IsUserAuthenticated() override;
-  virtual void LoginAsync() override;
+bool AuthenticationProviderEmailCodeImpl::IsUserAuthenticated() {
+	return SdkService_->IsUserAuthenticated();
+}
 
-private:
-  DISALLOW_IMPLICIT_CONSTRUCTORS(AuthenticationProviderTestSteamImpl);
-
-  TSharedRef<CFCoreSdkService> SdkService_;
-  IAuthenticationProviderDelegate* Delegate_;
-};
-
-}; // namespace cfeditor
+void AuthenticationProviderEmailCodeImpl::LoginAsync() {
+	//Delegate_->OnAuthenticationToken(
+	//	ECFCoreExternalAuthProvider::Steam,
+	//	kHardCodedSteamTokenBase64);
+}
