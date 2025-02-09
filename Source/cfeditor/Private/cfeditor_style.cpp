@@ -41,32 +41,34 @@ const FVector2D Icon40x40(40.0f, 40.0f);
 TSharedPtr<FSlateStyleSet> FCFEditorStyle::StyleInstance = nullptr;
 
 void FCFEditorStyle::Initialize() {
-	if (!StyleInstance.IsValid()) {
-		StyleInstance = Create();
-		FSlateStyleRegistry::RegisterSlateStyle(*StyleInstance);
-	}
+  if (!StyleInstance.IsValid()) {
+    StyleInstance = Create();
+    FSlateStyleRegistry::RegisterSlateStyle(*StyleInstance);
+  }
 }
 
 void FCFEditorStyle::Shutdown() {
-	FSlateStyleRegistry::UnRegisterSlateStyle(*StyleInstance);
-	ensure(StyleInstance.IsUnique());
-	StyleInstance.Reset();
+  FSlateStyleRegistry::UnRegisterSlateStyle(*StyleInstance);
+  ensure(StyleInstance.IsUnique());
+  StyleInstance.Reset();
 }
 
 FName FCFEditorStyle::GetStyleSetName() {
-	static FName StyleSetName(kCFEditorStyleName);
-	return StyleSetName;
+  static FName StyleSetName(kCFEditorStyleName);
+  return StyleSetName;
 }
 
 TSharedRef<FSlateStyleSet> FCFEditorStyle::Create() {
-	TSharedRef<FSlateStyleSet> Style =
-		MakeShareable(new FSlateStyleSet(kCFEditorStyleName));
-	auto plugin = IPluginManager::Get().FindPlugin(UE_PLUGIN_NAME);
-	Style->SetContentRoot(plugin->GetBaseDir() / TEXT("Resources"));
+  TSharedRef<FSlateStyleSet> Style =
+    MakeShareable(new FSlateStyleSet(kCFEditorStyleName));
+  auto plugin = IPluginManager::Get().FindPlugin(UE_PLUGIN_NAME);
+  Style->SetContentRoot(plugin->GetBaseDir() / TEXT("Resources"));
 
-	Style->Set( "cfeditor.ShareUGC", new IMAGE_BRUSH( "cf-icon", Icon40x40 ) );
+  Style->Set("cfeditor.SignIn", new IMAGE_BRUSH("cf-icon", Icon40x40));
+  Style->Set("cfeditor.SignOut", new IMAGE_BRUSH("cf-icon", Icon40x40));
+  Style->Set("cfeditor.ShareUGC", new IMAGE_BRUSH("cf-icon", Icon40x40));
 
-	return Style;
+  return Style;
 }
 
 #undef IMAGE_BRUSH
@@ -76,11 +78,11 @@ TSharedRef<FSlateStyleSet> FCFEditorStyle::Create() {
 #undef OTF_FONT
 
 void FCFEditorStyle::ReloadTextures() {
-	if (FSlateApplication::IsInitialized()) {
-		FSlateApplication::Get().GetRenderer()->ReloadTextureResources();
-	}
+  if (FSlateApplication::IsInitialized()) {
+    FSlateApplication::Get().GetRenderer()->ReloadTextureResources();
+  }
 }
 
 const ISlateStyle& FCFEditorStyle::Get() {
-	return *StyleInstance;
+  return *StyleInstance;
 }

@@ -1,7 +1,6 @@
-// Copyright 2023 Blue Isle Studios Inc. All Rights Reserved.
 /*MIT License
 
-Copyright (c) 2022 Overwolf Ltd.
+Copyright (c) 2025 Overwolf Ltd.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,23 +19,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.*/
-#pragma once
-#include "CoreMinimal.h"
+#include "mods_loader.h"
+#include <Interfaces/IPluginManager.h>
 
-namespace cfeditor {
+#define LOCTEXT_NAMESPACE "FModsLoader"
 
-const extern int64 kCFGameId;
-extern const TCHAR kCFApiKey[];
-extern const TCHAR kGameName[];
+void FModsLoader::FindAvailableGameMods(
+	TArray<TSharedRef<IPlugin>>& OutAvailableGameMods) {
 
-extern const TCHAR kUIMenuBarLabel[];
-extern const TCHAR kUIMenuBarTooltip[];
+	OutAvailableGameMods.Empty();
 
-extern const TCHAR kUIMenuSignInEntryLabel[];
-extern const TCHAR kUIMenuSignInEntryTooltip[];
-extern const TCHAR kUIMenuSignOutEntryLabel[];
-extern const TCHAR kUIMenuSignOutEntryTooltip[];
-extern const TCHAR kUIMenuShareUGCEntryLabel[];
-extern const TCHAR kUIMenuShareUGCEntryTooltip[];
+	auto Plugins = IPluginManager::Get().GetDiscoveredPlugins();
+	for (TSharedRef<IPlugin> Plugin : Plugins) {
+		const FString& Name = Plugin->GetName();
+		EPluginLoadedFrom LoadedFrom = Plugin->GetLoadedFrom();
+		EPluginType Type = Plugin->GetType();
 
-}; // namespace cfeditor
+		if (EPluginLoadedFrom::Project == LoadedFrom && EPluginType::Mod == Type) {
+			OutAvailableGameMods.AddUnique(Plugin);
+		}
+	}
+}
+
+int32 FModsLoader::GetNumAvailableGameMods() {
+	TArray<TSharedRef<IPlugin>> AvailableGameMods;
+	FindAvailableGameMods(AvailableGameMods);
+	return AvailableGameMods.Num();
+}

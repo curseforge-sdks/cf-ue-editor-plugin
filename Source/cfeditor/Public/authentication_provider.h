@@ -31,6 +31,7 @@ public:
   virtual ~IAuthenticationProvider() = default;
   virtual bool IsUserAuthenticated() = 0;
   virtual void LoginAsync() = 0;
+  virtual void LogoutAsync() = 0;
 };
 
 }; // namespace cfeditor

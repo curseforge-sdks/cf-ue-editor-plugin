@@ -21,6 +21,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.*/
 #include "cfeditor_module.h"
+
+#include "authentication_provider_email_code_impl.h"
 #include "Misc/MessageDialog.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Engine/World.h"
@@ -53,13 +55,12 @@ void FCFEditorModule::StartupModule() {
 	}
 
 	RegisterStyles();
-	InitializeCommandButton();
+	InitializeCommandButtons();
 
 	CFCoreSdkService_ = MakeShared<CFCoreSdkService>(this);
 
-	// AuthenticationProvider_ = MakeShared<AuthenticationProviderSteamImpl>(this);
 	AuthenticationProvider_ =
-		MakeShared<AuthenticationProviderTestSteamImpl>(
+		MakeShared<AuthenticationProviderEmailCodeImpl>(
 			CFCoreSdkService_.ToSharedRef(),
 			this);
 
@@ -82,11 +83,6 @@ void FCFEditorModule::ShutdownModule() {
 // ICFCoreSdkServiceDelegate
 void FCFEditorModule::OnCFCoreSdkInitialized() {
 	CFCoreSdkService_->RetrieveCategoriesAsync();
-
-	if (CFCoreSdkService_->IsUserAuthenticated()) {
-		UE_LOG_ONLINE(Log, TEXT("[CFCore] User is already authenticated"));
-		return;
-	}
 
 	// PerformAuthentication
 	AuthenticationProvider_->LoginAsync();
@@ -128,18 +124,44 @@ void FCFEditorModule::OnAuthenticationError(const FText& ErrorMsg) {
 	FMessageDialog::Open(EAppMsgType::Ok, ErrorMsg);
 }
 
-void FCFEditorModule::FindAvailableGameMods(TArray<TSharedRef<IPlugin>>& OutAvailableGameMods) {
-	OutAvailableGameMods.Empty();
+void FCFEditorModule::OpenSignoutWindow() {
+	const TCHAR id[] = TEXT("ModUploadWindow/EUW_SignOutFlow.EUW_SignOutFlow");
 
-	for (TSharedRef<IPlugin> Plugin : IPluginManager::Get().GetDiscoveredPlugins()) {
-		if (Plugin->GetLoadedFrom() == EPluginLoadedFrom::Project &&
-				Plugin->GetType() == EPluginType::Mod) {
-			OutAvailableGameMods.AddUnique(Plugin);
-		}
+#if ENGINE_MAJOR_VERSION >= 5
+	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
+	FSoftObjectPath ItemRef = Resource;
+#else
+	FString Resource = FString::Printf(TEXT("EditorUtilityWidgetBlueprint'/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
+	FStringAssetReference ItemRef = Resource;
+#endif
+
+	ItemRef.TryLoad();
+
+	UObject* ItemClass = ItemRef.ResolveObject();
+	UWidgetBlueprint* WidgetBlueprint = Cast<UWidgetBlueprint>(ItemClass);
+	if(!WidgetBlueprint || !WidgetBlueprint->GeneratedClass || !GEditor) {
+		return;
 	}
+
+	if (!WidgetBlueprint->GeneratedClass->IsChildOf(UEditorUtilityWidget::StaticClass())) {
+		return;
+	}
+
+	UEditorUtilityWidgetBlueprint* const EditorWidget = Cast<UEditorUtilityWidgetBlueprint>(WidgetBlueprint);
+	if (!EditorWidget) {
+		return;
+	}
+
+	UEditorUtilitySubsystem* const EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>();
+	if (!EditorUtilitySubsystem) {
+		return;
+	}
+
+	EditorUtilitySubsystem->SpawnAndRegisterTabAndGetID(EditorWidget,
+																											UCFUploadWidget::TabId);
 }
 
-void FCFEditorModule::OpenWindow() {
+void FCFEditorModule::OpenUploadMODWindow() {
 	const TCHAR id[] = TEXT("ModUploadWindow/ModUploadWindow.ModUploadWindow");
 
 #if ENGINE_MAJOR_VERSION >= 5
@@ -172,15 +194,8 @@ void FCFEditorModule::OpenWindow() {
 		return;
 	}
 
-	EditorUtilitySubsystem->SpawnAndRegisterTabAndGetID(
-		EditorWidget,
-		UCFUploadWidget::TabId);
-}
-
-int32 FCFEditorModule::GetNumAvailableGameMods() {
-	TArray<TSharedRef<IPlugin>> AvailableGameMods;
-	FindAvailableGameMods(AvailableGameMods);
-	return AvailableGameMods.Num();
+	EditorUtilitySubsystem->SpawnAndRegisterTabAndGetID(EditorWidget,
+																											UCFUploadWidget::TabId);
 }
 
 void FCFEditorModule::RegisterStyles() {
@@ -188,10 +203,7 @@ void FCFEditorModule::RegisterStyles() {
 	FCFEditorStyle::ReloadTextures();
 }
 
-void FCFEditorModule::InitializeCommandButton() {
-	FCFEditorCommands::Register();
-
-	PluginCommands_ = MakeShareable(new FUICommandList);
+void FCFEditorModule::InitializeCommandButtons() {
 	MapCommands();
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
@@ -214,25 +226,69 @@ void FCFEditorModule::InitializeCommandButton() {
 		PluginCommands_,
 		FMenuBarExtensionDelegate::CreateRaw(this, &FCFEditorModule::AddPullDownMenu)
 	);
+
 	LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuBarExtender);
 #endif
 }
 
 bool FCFEditorModule::Enabled_ShareUGC() {
 	bool IsLoggedIn = AuthenticationProvider_->IsUserAuthenticated();
-	return IsLoggedIn && GetNumAvailableGameMods();
+	return IsLoggedIn;
 }
 
 static bool Disabled() { return false; }
 
 void FCFEditorModule::MapCommands() {
+	PluginCommands_ = MakeShareable(new FUICommandList);
+
+	FCFEditorCommands::Register();
+
+	PluginCommands_->MapAction(
+		FCFEditorCommands::Get().SignIn,
+		FExecuteAction::CreateLambda([this]() {
+			AuthenticationProvider_->LoginAsync();
+		}),
+		FCanExecuteAction::CreateLambda([this]() {
+			bool SignedIn = AuthenticationProvider_->IsUserAuthenticated();
+			return !SignedIn;
+		}),
+		FGetActionCheckState::CreateLambda([]() {
+			return ECheckBoxState::Undetermined;
+		}),
+		FIsActionButtonVisible::CreateLambda([this]() {
+			bool SignedIn = AuthenticationProvider_->IsUserAuthenticated();
+			return !SignedIn;
+		})
+	);
+
+	PluginCommands_->MapAction(
+		FCFEditorCommands::Get().SignOut,
+		FExecuteAction::CreateLambda([this]() {
+			OpenSignoutWindow();
+			//AuthenticationProvider_->LogoutAsync();
+		}),
+		FCanExecuteAction::CreateLambda([this]() {
+			bool SignedIn = AuthenticationProvider_->IsUserAuthenticated();
+			return SignedIn;
+		}),
+		FGetActionCheckState::CreateLambda([]() {
+			return ECheckBoxState::Undetermined;
+		}),
+		FIsActionButtonVisible::CreateLambda([this]() {
+			bool SignedIn = AuthenticationProvider_->IsUserAuthenticated();
+			return SignedIn;
+		})
+	);
+
 	PluginCommands_->MapAction(
     FCFEditorCommands::Get().ShareUGC,
-    FExecuteAction::CreateRaw(this, &FCFEditorModule::OpenWindow),
+    FExecuteAction::CreateRaw(this, &FCFEditorModule::OpenUploadMODWindow),
     FCanExecuteAction::CreateRaw(this, &FCFEditorModule::Enabled_ShareUGC));
 }
 
 void FCFEditorModule::AddToolbarExtension(FToolBarBuilder& Builder) {
+	Builder.AddToolBarButton(FCFEditorCommands::Get().SignIn);
+	Builder.AddToolBarButton(FCFEditorCommands::Get().SignOut);
 	Builder.AddToolBarButton(FCFEditorCommands::Get().ShareUGC);
 }
 
@@ -247,15 +303,35 @@ void FCFEditorModule::AddPullDownMenu(FMenuBarBuilder& MenuBuilder) {
 
 void FCFEditorModule::FillMenu(FMenuBuilder& MenuBuilder) {
 	MenuBuilder.BeginSection(kUIMenuBarLabel);
+
 	{
 		MenuBuilder.AddMenuEntry(
 			FCFEditorCommands::Get().ShareUGC,
 			NAME_None,
-			FText::FromString(kUIMenuEntryLabel),
-			FText::FromString(kUIMenuEntryTooltip),
+			FText::FromString(kUIMenuShareUGCEntryLabel),
+			FText::FromString(kUIMenuShareUGCEntryTooltip),
+			FSlateIcon()
+		);
+
+		MenuBuilder.AddMenuSeparator();
+
+		MenuBuilder.AddMenuEntry(
+			FCFEditorCommands::Get().SignIn,
+			NAME_None,
+			FText::FromString(kUIMenuSignInEntryLabel),
+			FText::FromString(kUIMenuSignInEntryTooltip),
+			FSlateIcon()
+		);
+
+		MenuBuilder.AddMenuEntry(
+			FCFEditorCommands::Get().SignOut,
+			NAME_None,
+			FText::FromString(kUIMenuSignOutEntryLabel),
+			FText::FromString(kUIMenuSignOutEntryTooltip),
 			FSlateIcon()
 		);
 	}
+
 	MenuBuilder.EndSection();
 }
 #undef LOCTEXT_NAMESPACE

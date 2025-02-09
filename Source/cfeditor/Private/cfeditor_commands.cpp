@@ -25,11 +25,9 @@ SOFTWARE.*/
 #define LOCTEXT_NAMESPACE "FCFEditorModule"
 
 void FCFEditorCommands::RegisterCommands() {
-	UI_COMMAND(ShareUGC,
-						 "Share UGC",
-						 "Upload UGC to CurseForge",
-						 EUserInterfaceActionType::Button,
-						 FInputGesture());
+	UI_COMMAND(SignIn, "Sign In", "Sign In", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(SignOut, "Sign Out", "Sign Out", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(ShareUGC, "Share UGC", "Upload UGC to CurseForge", EUserInterfaceActionType::Button, FInputGesture())
 }
 
 #undef LOCTEXT_NAMESPACE

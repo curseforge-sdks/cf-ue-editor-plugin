@@ -39,7 +39,7 @@ void CFCoreSdkService::InitializeAsync() {
 	Settings.apiKey = kCFApiKey;
 	Settings.maxConcurrentInstallations = 10;
 	Settings.modsDirectory = FPaths::ProjectModsDir();
-	Settings.userDataDirectory = FPaths::Combine(FPaths::ProjectModsDir(), TEXT(".eternal"));
+	Settings.userDataDirectory = FPaths::Combine(FPaths::ProjectModsDir(), TEXT(".cfcore"));
 
 	UE_LOG(LogTemp, Log, TEXT("[CFCore] Initializing CFCore..."));
 
@@ -123,6 +123,22 @@ bool CFCoreSdkService::AuthenticateByExternalProviderAsync(
 
 				Delegate_->OnCFCoreSdkAuthorized();
 			}));
+
+	return true;
+}
+
+bool CFCoreSdkService::LogoutAsync() {
+	auto Authentication = CFCoreContext::GetInstance()->Authentication();
+	if (!Authentication) {
+		return false;
+	}
+
+	Authentication->Logout(
+		ICFCoreAuthentication::FLogoutDelegate::CreateLambda([](
+			const TOptional<FCFCoreError>&) {
+
+		UE_LOG(LogTemp, Log, TEXT("[CFCore] User logged out"));
+	}));
 
 	return true;
 }

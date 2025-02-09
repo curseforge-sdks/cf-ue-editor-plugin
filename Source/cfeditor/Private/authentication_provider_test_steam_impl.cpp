@@ -50,3 +50,7 @@ void AuthenticationProviderTestSteamImpl::LoginAsync() {
 			FText::FromString("Failed to Authenticate with Steam"));
 	}
 }
+
+void AuthenticationProviderTestSteamImpl::LogoutAsync() {
+	SdkService_->LogoutAsync();
+}

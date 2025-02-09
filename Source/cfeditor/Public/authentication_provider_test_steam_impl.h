@@ -42,6 +42,7 @@ public:
 public:
   virtual bool IsUserAuthenticated() override;
   virtual void LoginAsync() override;
+  virtual void LogoutAsync() override;
 
 private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(AuthenticationProviderTestSteamImpl);

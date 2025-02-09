@@ -57,14 +57,12 @@ public:
 	virtual void OnAuthenticationError(const FText& ErrorMsg) override;
 
 public:
-	void OpenWindow();
-
-	static void FindAvailableGameMods(TArray<TSharedRef<class IPlugin>>& OutAvailableGameMods);
-	static int32 GetNumAvailableGameMods();
+	void OpenUploadMODWindow();
+	void OpenSignoutWindow();
 
 private:
 	void RegisterStyles();
-	void InitializeCommandButton();
+	void InitializeCommandButtons();
 
 	/** Returns true if the toolbar button is enabled (user must be logged in) */
 	bool Enabled_ShareUGC();

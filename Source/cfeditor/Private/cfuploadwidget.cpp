@@ -37,6 +37,7 @@ SOFTWARE.*/
 #include "cfeditor_style.h"
 #include "Runtime/Core/Public/Async/Async.h"
 #include "cfcore_context.h"
+#include "mods_loader.h"
 
 #define LOCTEXT_NAMESPACE "FCFEditorModule"
 
@@ -49,7 +50,7 @@ void UCFUploadWidget::NativeConstruct() {
   Super::NativeConstruct();
 
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
-  FCFEditorModule::FindAvailableGameMods(OutAvailableGameMods);
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
     AddModDataToUI(GetPluginData(AvailableMod));
@@ -98,13 +99,9 @@ FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
   Plugin->GetDescriptor().Description.ParseIntoArray(SplitDescription,
                                                      TEXT("&cf_ugcID="));
 
-  TArray<FString> SplitDescription2;
-  Plugin->GetDescriptor().Description.ParseIntoArray(SplitDescription2,
-                                                     TEXT("&ugcID="));
-
   FCFModData PluginData;
   PluginData.Id = SplitDescription.Num() > 1 ? FCString::Strtoi64(*SplitDescription[1], NULL, 10) : -1;
-  PluginData.Description = SplitDescription2.Num() ? SplitDescription2[0] : (SplitDescription.Num() ? SplitDescription[0] : "");
+  PluginData.Description = SplitDescription.Num() ? SplitDescription[0] : "";
   PluginData.Name = Plugin->GetDescriptor().FriendlyName;
   PluginData.HomepageURL = Plugin->GetDescriptor().CreatedByURL;
   PluginData.Path = FPaths::ConvertRelativePathToFull(Plugin->GetBaseDir());
@@ -116,12 +113,16 @@ FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
 
 void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
                                              const FText& DialogText) {
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 3
+  FMessageDialog::Open(EAppMsgType::Ok, DialogText, DialogTitle);
+#else
   FMessageDialog::Open(EAppMsgType::Ok, DialogText, &DialogTitle);
+#endif
 }
 
 void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
-  FCFEditorModule::FindAvailableGameMods(OutAvailableGameMods);
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
     if (AvailableMod->GetDescriptor().FriendlyName == Mod.name) {
@@ -157,7 +158,7 @@ void UCFUploadWidget::PackageModWithSettings(
   TArray<FCModPlatformData> BuildPlatforms) {
 
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
-  FCFEditorModule::FindAvailableGameMods(OutAvailableGameMods);
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
   if (FPaths::FileExists(Path)) {
     ShowConfirmationDialog(LOCTEXT("PackageFailureAlreadyExistsTitle", "Package Failure"), LOCTEXT("PackageFailureAlreadyExists", "Failed to package the mod because there's already a packaged mod present. Please clear your mod's build folder."));
     OnModPackagingFailed();
@@ -267,7 +268,7 @@ const FCategory& UCFUploadWidget::GetSubCategoryByName(const int64 ClassID, cons
 
 FCFModData UCFUploadWidget::GetModDataByName(const FString& Name) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
-  FCFEditorModule::FindAvailableGameMods(OutAvailableGameMods);
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
     if (AvailableMod->GetDescriptor().FriendlyName != Name) {
@@ -282,7 +283,7 @@ FCFModData UCFUploadWidget::GetModDataByName(const FString& Name) {
 
 FCFModData UCFUploadWidget::GetModById(const int32 Id) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
-  FCFEditorModule::FindAvailableGameMods(OutAvailableGameMods);
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
     FCFModData ModData = GetPluginData(AvailableMod);

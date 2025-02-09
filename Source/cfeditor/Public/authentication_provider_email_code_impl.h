@@ -25,6 +25,11 @@ SOFTWARE.*/
 #include "macros.h"
 #include "authentication_provider.h"
 
+#include <api/cfcore_api.h>
+#include <api/cfcore_api_authentication.h>
+#include <api/cfcore_api_authorized.h>
+#include <api/cfcore_api_creation.h>
+
 namespace cfeditor {
 
 class CFCoreSdkService;
@@ -42,6 +47,10 @@ public:
 public:
   virtual bool IsUserAuthenticated() override;
   virtual void LoginAsync() override;
+  virtual void LogoutAsync() override;
+
+private:
+  void OpenSignInWindow();
 
 private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(AuthenticationProviderEmailCodeImpl);

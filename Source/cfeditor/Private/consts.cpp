@@ -30,7 +30,11 @@ const TCHAR kGameName[] = TEXT("");
 
 const TCHAR kUIMenuBarLabel[] = TEXT("UGC");
 const TCHAR kUIMenuBarTooltip[] = TEXT("User Generated Content");
-const TCHAR kUIMenuEntryLabel[] = TEXT("Share UGC");
-const TCHAR kUIMenuEntryTooltip[] = TEXT("Upload UGC to CurseForge");
+const TCHAR kUIMenuSignInEntryLabel[] = TEXT("Sign In");
+const TCHAR kUIMenuSignInEntryTooltip[] = TEXT("Sign In to CurseForge");
+const TCHAR kUIMenuSignOutEntryLabel[] = TEXT("Sign Out");
+const TCHAR kUIMenuSignOutEntryTooltip[] = TEXT("Sign Out/Switch Accounts");
+const TCHAR kUIMenuShareUGCEntryLabel[] = TEXT("Share UGC");
+const TCHAR kUIMenuShareUGCEntryTooltip[] = TEXT("Upload UGC to CurseForge");
 
 }; // namespace cfeditor {

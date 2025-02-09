@@ -110,4 +110,8 @@ void AuthenticationProviderSteamImpl::LoginAsync() {
 	EncryptedAppTicketPtr->RequestEncryptedAppTicket(nullptr, 0);
 }
 
+void AuthenticationProviderSteamImpl::LogoutAsync() {
+	SdkService_->LogoutAsync();
+}
+
 #undef LOCTEXT_NAMESPACE

@@ -40,5 +40,7 @@ public:
 	virtual void RegisterCommands() override;
 
 public:
+	TSharedPtr<FUICommandInfo> SignIn;
+	TSharedPtr<FUICommandInfo> SignOut;
 	TSharedPtr<FUICommandInfo> ShareUGC;
 };

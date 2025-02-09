@@ -22,13 +22,21 @@ SOFTWARE.*/
 #include "authentication_provider_email_code_impl.h"
 #include "authentication_provider_delegate.h"
 #include "cfcore_sdk_service.h"
+#include "WidgetBlueprint.h"
+#include "EditorUtilityWidget.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorUtilitySubsystem.h"
+#include "EditorUtilityWidgetBlueprint.h"
+#include "OnlineSubsystem.h"
+#include "cfuploadwidget.h"
 
 using namespace cfeditor;
 
+#define LOCTEXT_NAMESPACE "AuthenticationProviderEmailCodeImpl"
+
 AuthenticationProviderEmailCodeImpl::AuthenticationProviderEmailCodeImpl(
 	TSharedRef<CFCoreSdkService> InSdkService,
-	IAuthenticationProviderDelegate* InDelegate) : SdkService_(InSdkService),
-																								 Delegate_(InDelegate) {
+	IAuthenticationProviderDelegate* InDelegate) : SdkService_(InSdkService), Delegate_(InDelegate) {
 }
 
 // IAuthenticationProvider
@@ -37,7 +45,54 @@ bool AuthenticationProviderEmailCodeImpl::IsUserAuthenticated() {
 }
 
 void AuthenticationProviderEmailCodeImpl::LoginAsync() {
-	//Delegate_->OnAuthenticationToken(
-	//	ECFCoreExternalAuthProvider::Steam,
-	//	kHardCodedSteamTokenBase64);
+	bool bUserAuthenticated = SdkService_->IsUserAuthenticated();
+
+	if (bUserAuthenticated) {
+		UE_LOG_ONLINE(Log, TEXT("[CFCore] User is already authenticated"));
+		return;
+	}
+
+	OpenSignInWindow();
+}
+
+void AuthenticationProviderEmailCodeImpl::LogoutAsync() {
+	SdkService_->LogoutAsync();
+}
+
+void AuthenticationProviderEmailCodeImpl::OpenSignInWindow() {
+	const TCHAR id[] = TEXT("ModUploadWindow/EUW_SignInFlow.EUW_SignInFlow");
+
+#if ENGINE_MAJOR_VERSION >= 5
+	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
+	FSoftObjectPath ItemRef = Resource;
+#else
+	FString Resource = FString::Printf(TEXT("EditorUtilityWidgetBlueprint'/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
+	FStringAssetReference ItemRef = Resource;
+#endif
+
+	ItemRef.TryLoad();
+
+	UObject* ItemClass = ItemRef.ResolveObject();
+	UWidgetBlueprint* WidgetBlueprint = Cast<UWidgetBlueprint>(ItemClass);
+	if(!WidgetBlueprint || !WidgetBlueprint->GeneratedClass || !GEditor) {
+		return;
+	}
+
+	if (!WidgetBlueprint->GeneratedClass->IsChildOf(UEditorUtilityWidget::StaticClass())) {
+		return;
+	}
+
+	UEditorUtilityWidgetBlueprint* const EditorWidget = Cast<UEditorUtilityWidgetBlueprint>(WidgetBlueprint);
+	if (!EditorWidget) {
+		return;
+	}
+
+	UEditorUtilitySubsystem* const EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>();
+	if (!EditorUtilitySubsystem) {
+		return;
+	}
+
+	EditorUtilitySubsystem->SpawnAndRegisterTabAndGetID(
+		EditorWidget,
+		UCFUploadWidget::TabId);
 }

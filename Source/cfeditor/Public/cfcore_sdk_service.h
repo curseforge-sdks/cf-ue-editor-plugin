@@ -26,6 +26,10 @@ SOFTWARE.*/
 #include "macros.h"
 #include <api/models/category.h>
 #include <api/models/enums/external_auth_provider.h>
+#include <common/cfcore_error.h>
+
+#include <api/cfcore_api.h>
+#include <cfcore/Private/services/user_context/user_context_service.h>
 
 namespace cfeditor {
 
@@ -35,6 +39,10 @@ class ICFCoreSdkServiceDelegate;
 class CFCoreSdkService {
 public:
   CFCoreSdkService(ICFCoreSdkServiceDelegate* InDelegate);
+  virtual ~CFCoreSdkService() = default;
+
+  DECLARE_DELEGATE_OneParam(FSendSecurityCodeDelegate, const TOptional<FCFCoreError>&);
+  DECLARE_DELEGATE_OneParam(FGenerateAuthTokenDelegate, const TOptional<FCFCoreError>&);
 
 public:
   void InitializeAsync();
@@ -42,6 +50,7 @@ public:
   bool AuthenticateByExternalProviderAsync(ECFCoreExternalAuthProvider Provider,
                                            const FString& Token);
 
+  bool LogoutAsync();
   bool IsUserAuthenticated();
   void Uninitialize();
 
@@ -52,6 +61,9 @@ private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(CFCoreSdkService);
 
   ICFCoreSdkServiceDelegate* Delegate_;
+
+  TSharedPtr<cfcore::ICFCoreApi> cfcore_api_;
+  TSharedPtr<cfcore::IUserContextService> user_context_service_;
 };
 
 }; // namespace cfeditor
