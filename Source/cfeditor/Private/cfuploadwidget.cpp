@@ -28,6 +28,9 @@ SOFTWARE.*/
 #include "EditorUtilitySubsystem.h"
 #include "IUATHelperModule.h"
 
+#include <JsonObjectConverter.h>
+#include <JsonUtilities.h>
+
 #include "Runtime/Core/Public/Modules/ModuleManager.h"
 #include "Widgets/SWindow.h"
 #include "Runtime/Core/Public/Misc/MessageDialog.h"
@@ -46,6 +49,8 @@ TArray<FCategory> UCFUploadWidget::RootCategories;
 TArray<FCategory> UCFUploadWidget::EmptyCategoryList;
 FName UCFUploadWidget::TabId = NAME_None;
 
+const FString kUgcIdFieldName = TEXT("CfUgcId");
+
 void UCFUploadWidget::NativeConstruct() {
   Super::NativeConstruct();
 
@@ -58,15 +63,15 @@ void UCFUploadWidget::NativeConstruct() {
 }
 
 void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
-                                     const FString& DefaultPath,
-                                     const FString& FileTypes,
-                                     FString& OutputPath,
-                                     bool bIsDirectory) {
+  const FString& DefaultPath,
+  const FString& FileTypes,
+  FString& OutputPath,
+  bool bIsDirectory) {
   void* ParentWindowWindowHandle = nullptr;
   IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
   const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
   if (MainFrameParentWindow.IsValid() &&
-      MainFrameParentWindow->GetNativeWindow().IsValid()) {
+    MainFrameParentWindow->GetNativeWindow().IsValid()) {
     ParentWindowWindowHandle =
       MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
   }
@@ -74,19 +79,20 @@ void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
   if (IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get()) {
     if (bIsDirectory) {
       DesktopPlatform->OpenDirectoryDialog(ParentWindowWindowHandle,
-                                           DialogTitle,
-                                           DefaultPath,
-                                           OutputPath);
-    } else {
+        DialogTitle,
+        DefaultPath,
+        OutputPath);
+    }
+    else {
       TArray<FString> OutFileNames;
       uint32 SelectionFlag = 0; //A value of 0 represents single file selection while a value of 1 represents multiple file selection
       DesktopPlatform->OpenFileDialog(ParentWindowWindowHandle,
-                                      DialogTitle,
-                                      DefaultPath,
-                                      FString(""),
-                                      FileTypes,
-                                      SelectionFlag,
-                                      OutFileNames);
+        DialogTitle,
+        DefaultPath,
+        FString(""),
+        FileTypes,
+        SelectionFlag,
+        OutFileNames);
       if (OutFileNames.Num()) {
         OutputPath = OutFileNames[0];
       }
@@ -95,13 +101,9 @@ void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
 }
 
 FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
-  TArray<FString> SplitDescription;
-  Plugin->GetDescriptor().Description.ParseIntoArray(SplitDescription,
-                                                     TEXT("&cf_ugcID="));
-
   FCFModData PluginData;
-  PluginData.Id = SplitDescription.Num() > 1 ? FCString::Strtoi64(*SplitDescription[1], NULL, 10) : -1;
-  PluginData.Description = SplitDescription.Num() ? SplitDescription[0] : "";
+  PluginData.Id = ExtractUgcIdFromPlugin(Plugin);
+  PluginData.Description = ExtractDescription(Plugin);
   PluginData.Name = Plugin->GetDescriptor().FriendlyName;
   PluginData.HomepageURL = Plugin->GetDescriptor().CreatedByURL;
   PluginData.Path = FPaths::ConvertRelativePathToFull(Plugin->GetBaseDir());
@@ -111,8 +113,59 @@ FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
   return MoveTemp(PluginData);
 }
 
+// NOTE: This is for backwards compatibility, before we added the UgcId field
+FString UCFUploadWidget::ExtractDescription(TSharedRef<class IPlugin> Plugin) {
+  TArray<FString> SplitDescription;
+  Plugin->GetDescriptor().Description.ParseIntoArray(SplitDescription,
+    TEXT("&cf_ugcID="));
+
+  if (SplitDescription.Num() == 0) {
+    return "";
+  }
+
+  SplitDescription[0].ParseIntoArray(SplitDescription, TEXT("&ugcID="));
+  return SplitDescription[0];
+}
+
+int64 UCFUploadWidget::ExtractUgcIdFromPlugin(
+  TSharedRef<class IPlugin> Plugin) {
+
+  FString PluginDescriptorPath = Plugin->GetDescriptorFileName();
+
+  // Load the file contents
+  FString JsonContent;
+  if (!FFileHelper::LoadFileToString(JsonContent, *PluginDescriptorPath)) {
+    UE_LOG(LogTemp,
+      Error, TEXT("Failed to load plugin descriptor: %s"),
+      *PluginDescriptorPath);
+    return -1;
+  }
+
+  // Parse JSON
+  TSharedPtr<FJsonObject> JsonObject;
+  TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonContent);
+  if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid()) {
+    UE_LOG(LogTemp,
+      Error,
+      TEXT("Failed to parse JSON for plugin descriptor: %s"),
+      *PluginDescriptorPath);
+    return -1;
+  }
+
+  int64 UgcId;
+  if (JsonObject->TryGetNumberField(kUgcIdFieldName, UgcId)) {
+    return UgcId;
+  }
+
+  UE_LOG(LogTemp,
+    Warning,
+    TEXT("UgcId field not found or invalid in plugin descriptor: %s"),
+    *PluginDescriptorPath);
+  return -1;
+}
+
 void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
-                                             const FText& DialogText) {
+  const FText& DialogText) {
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 3
   FMessageDialog::Open(EAppMsgType::Ok, DialogText, DialogTitle);
 #else
@@ -125,28 +178,30 @@ void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod) {
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-    if (AvailableMod->GetDescriptor().FriendlyName == Mod.name) {
-      FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
-
-      TArray<FString> SplitDescription;
-      Descriptor.Description.ParseIntoArray(SplitDescription, TEXT("&ugcID="));
-
-      int32 ModIOModID = INDEX_NONE;
-      if (SplitDescription.Num() >= 2) {
-        TArray<FString> SplitSubDescription;
-        SplitDescription[1].ParseIntoArray(SplitSubDescription, TEXT("&cf_ugcID="));
-        ModIOModID = SplitSubDescription.Num() ? FCString::Atoi(*SplitSubDescription[0]) : FCString::Atoi(*SplitDescription[1]);
-      }
-
-      Descriptor.Description = Mod.summary + (ModIOModID != INDEX_NONE ? "&ugcID=" + FString::FromInt(ModIOModID) : "") + "&cf_ugcID=" + FString::FromInt(Mod.id);
-      Descriptor.MarketplaceURL = Mod.links.websiteUrl;
-      Descriptor.Category = "UGC";
-      if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
-        return;
-      }
-
-      break;
+    if (AvailableMod->GetDescriptor().FriendlyName != Mod.name) {
+      continue;
     }
+
+    FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
+
+    TArray<FString> SplitDescription;
+    Descriptor.Description.ParseIntoArray(SplitDescription, TEXT("&ugcID="));
+
+    int32 ModIOModID = INDEX_NONE;
+    if (SplitDescription.Num() >= 2) {
+      TArray<FString> SplitSubDescription;
+      SplitDescription[1].ParseIntoArray(SplitSubDescription, TEXT("&cf_ugcID="));
+      ModIOModID = SplitSubDescription.Num() ? FCString::Atoi(*SplitSubDescription[0]) : FCString::Atoi(*SplitDescription[1]);
+    }
+
+    Descriptor.Description = Mod.summary + (ModIOModID != INDEX_NONE ? "&ugcID=" + FString::FromInt(ModIOModID) : "") + "&cf_ugcID=" + FString::FromInt(Mod.id);
+    Descriptor.MarketplaceURL = Mod.links.websiteUrl;
+    Descriptor.Category = "UGC";
+    if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
+      return;
+    }
+
+    break;
   }
 }
 
@@ -169,7 +224,7 @@ void UCFUploadWidget::PackageModWithSettings(
     TEXT("PackageUGC -Prepare=\"true\" -StagingDirectory=\"%s\""), *Path);
 
   const FText PackagingText = LOCTEXT("SimpleUGCEditor_PackagePluginTaskName",
-                                      "Preparing");
+    "Preparing");
   IUATHelperModule::Get().CreateUatTask(
     CommandLine,
     LOCTEXT("SimpleUGCEditor_PackageGeneral", "Mod Package Process"),
@@ -180,33 +235,34 @@ void UCFUploadWidget::PackageModWithSettings(
     nullptr,
 #endif
     [this, OutAvailableGameMods, ModID, BuildPlatforms](FString TaskResult,
-                                                        double TimeSec) {
-      AsyncTask(ENamedThreads::GameThread, [this,
-                                            TaskResult,
-                                            OutAvailableGameMods,
-                                            ModID,
-                                            BuildPlatforms]() {
-        if (TaskResult == "Completed") {
-          for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-           const FCFModData ModData = GetPluginData(AvailableMod);
-           if (ModData.Id == ModID) {
-             FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
-             Descriptor.Version = Descriptor.Version++;
-             Descriptor.VersionName = FGuid::NewGuid().ToString();
-             Descriptor.Category = "UGC";
-             if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
-               return;
-             }
+      double TimeSec) {
+        AsyncTask(ENamedThreads::GameThread, [this,
+          TaskResult,
+          OutAvailableGameMods,
+          ModID,
+          BuildPlatforms]() {
+            if (TaskResult == "Completed") {
+              for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
+                const FCFModData ModData = GetPluginData(AvailableMod);
+                if (ModData.Id == ModID) {
+                  FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
+                  Descriptor.Version = Descriptor.Version++;
+                  Descriptor.VersionName = FGuid::NewGuid().ToString();
+                  Descriptor.Category = "UGC";
+                  if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
+                    return;
+                  }
 
-             SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
-             return;
+                  SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
+                  return;
+                }
+              }
             }
-          }
-        } else {
-          ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
-          OnModPackagingFailed();
-        }
-      });
+            else {
+              ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
+              OnModPackagingFailed();
+            }
+          });
     });
 }
 
@@ -348,8 +404,8 @@ void UCFUploadWidget::SaveAndPackagePlugin(
 }
 
 void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
-                                    const FString& OutputDirectory,
-                                    TArray<FCModPlatformData>& BuildPlatforms) {
+  const FString& OutputDirectory,
+  TArray<FCModPlatformData>& BuildPlatforms) {
   if (!BuildPlatforms.Num()) {
     return;
   }
@@ -384,15 +440,17 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
               Plugin,
               OutputDirectory,
               const_cast<TArray<FCModPlatformData>&>(BuildPlatforms));
-          } else {
+          }
+          else {
             ArchivePlugin(OutputDirectory);
           }
-        } else {
+        }
+        else {
           ShowConfirmationDialog(
             LOCTEXT("buildfailtitle", "Couldn't Build UGC"),
             LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
           OnModPackagingFailed();
-          }
+        }
         });
     });
 }
@@ -415,10 +473,11 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory) {
       AsyncTask(ENamedThreads::GameThread, [this, TaskResult, OutputDirectory]() {
         if (TaskResult == "Completed") {
           OnModPackagingComplete();
-        } else {
+        }
+        else {
           ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Archive UGC"), LOCTEXT("buildfail", "Your ugc failed to archive. Please check the output log for more information."));
           OnModPackagingFailed();
         }
-      });
+        });
     });
 }

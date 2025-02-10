@@ -34,6 +34,8 @@ CFCoreSdkService::CFCoreSdkService(ICFCoreSdkServiceDelegate* InDelegate) :
 }
 
 void CFCoreSdkService::InitializeAsync() {
+	// NOTE: Consider using the cfcore project settings when kCFGameId/kCFApiKey
+	// are empty
 	FCFCoreSettings Settings;
 	Settings.gameId = kCFGameId;
 	Settings.apiKey = kCFApiKey;

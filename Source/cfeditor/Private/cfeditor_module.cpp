@@ -43,6 +43,7 @@ SOFTWARE.*/
 #include "authentication_provider_test_steam_impl.h"
 #include "consts.h"
 #include "OnlineSubsystem.h"
+#include "mods_loader.h"
 
 using namespace cfeditor;
 
@@ -232,8 +233,11 @@ void FCFEditorModule::InitializeCommandButtons() {
 }
 
 bool FCFEditorModule::Enabled_ShareUGC() {
+	int32 AvailableMods = FModsLoader::GetNumAvailableGameMods();
+	bool HasAvailableMods = AvailableMods > 0;
+
 	bool IsLoggedIn = AuthenticationProvider_->IsUserAuthenticated();
-	return IsLoggedIn;
+	return IsLoggedIn && HasAvailableMods;
 }
 
 static bool Disabled() { return false; }

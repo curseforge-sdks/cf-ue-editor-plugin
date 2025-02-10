@@ -128,6 +128,8 @@ private:
 	bool UpdatePluginDescriptor(const struct FPluginDescriptor& PluginDescriptor, TSharedRef<class IPlugin> Plugin);
 	void NativeConstruct() override;
 	FCFModData GetPluginData(TSharedRef<class IPlugin>);
+	FString ExtractDescription(TSharedRef<class IPlugin> Plugin);
+	int64 ExtractUgcIdFromPlugin(TSharedRef<class IPlugin> Plugin);
 
 	bool IsAllContentSaved(TSharedRef<IPlugin> Plugin);
 	void SaveAndPackagePlugin(TSharedRef<IPlugin> Plugin, TArray<FCModPlatformData> BuildPlatforms);

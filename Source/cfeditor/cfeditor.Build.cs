@@ -54,8 +54,7 @@ public class cfeditor : ModuleRules {
 
 
     PrivateDependencyModuleNames.AddRange(
-      new string[]
-      {
+      new string[] {
         "Projects",
         "InputCore",
         "UnrealEd",
@@ -72,16 +71,15 @@ public class cfeditor : ModuleRules {
         "UMG",
         "DesktopPlatform",
         "UATHelper",
+        "Json",
+        "JsonUtilities",
 				// ... add private dependencies that you statically link with here ...
-			}
-      );
+			});
 
 
     DynamicallyLoadedModuleNames.AddRange(
-      new string[]
-      {
+      new string[] {
 				// ... add any modules that your module loads dynamically here ...
-			}
-      );
+			});
   }
 }
