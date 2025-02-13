@@ -44,6 +44,7 @@ SOFTWARE.*/
 
 #define LOCTEXT_NAMESPACE "FCFEditorModule"
 
+// -----------------------------------------------------------------------------
 TMap<int64, TArray<FCategory>> UCFUploadWidget::Categories;
 TArray<FCategory> UCFUploadWidget::RootCategories;
 TArray<FCategory> UCFUploadWidget::EmptyCategoryList;
@@ -51,17 +52,7 @@ FName UCFUploadWidget::TabId = NAME_None;
 
 const FString kUgcIdFieldName = TEXT("CfUgcId");
 
-void UCFUploadWidget::NativeConstruct() {
-  Super::NativeConstruct();
-
-  TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
-  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
-
-  for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-    AddModDataToUI(GetPluginData(AvailableMod));
-  }
-}
-
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
   const FString& DefaultPath,
   const FString& FileTypes,
@@ -100,70 +91,7 @@ void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
   }
 }
 
-FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
-  FCFModData PluginData;
-  PluginData.Id = ExtractUgcIdFromPlugin(Plugin);
-  PluginData.Description = ExtractDescription(Plugin);
-  PluginData.Name = Plugin->GetDescriptor().FriendlyName;
-  PluginData.HomepageURL = Plugin->GetDescriptor().CreatedByURL;
-  PluginData.Path = FPaths::ConvertRelativePathToFull(Plugin->GetBaseDir());
-  PluginData.Version = Plugin->GetDescriptor().VersionName;
-  PluginData.MarketplaceURL = Plugin->GetDescriptor().MarketplaceURL;
-  PluginData.bIsValid = true;
-  return MoveTemp(PluginData);
-}
-
-// NOTE: This is for backwards compatibility, before we added the UgcId field
-FString UCFUploadWidget::ExtractDescription(TSharedRef<class IPlugin> Plugin) {
-  TArray<FString> SplitDescription;
-  Plugin->GetDescriptor().Description.ParseIntoArray(SplitDescription,
-    TEXT("&cf_ugcID="));
-
-  if (SplitDescription.Num() == 0) {
-    return "";
-  }
-
-  SplitDescription[0].ParseIntoArray(SplitDescription, TEXT("&ugcID="));
-  return SplitDescription[0];
-}
-
-int64 UCFUploadWidget::ExtractUgcIdFromPlugin(
-  TSharedRef<class IPlugin> Plugin) {
-
-  FString PluginDescriptorPath = Plugin->GetDescriptorFileName();
-
-  // Load the file contents
-  FString JsonContent;
-  if (!FFileHelper::LoadFileToString(JsonContent, *PluginDescriptorPath)) {
-    UE_LOG(LogTemp,
-      Error, TEXT("Failed to load plugin descriptor: %s"),
-      *PluginDescriptorPath);
-    return -1;
-  }
-
-  // Parse JSON
-  TSharedPtr<FJsonObject> JsonObject;
-  TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonContent);
-  if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid()) {
-    UE_LOG(LogTemp,
-      Error,
-      TEXT("Failed to parse JSON for plugin descriptor: %s"),
-      *PluginDescriptorPath);
-    return -1;
-  }
-
-  int64 UgcId;
-  if (JsonObject->TryGetNumberField(kUgcIdFieldName, UgcId)) {
-    return UgcId;
-  }
-
-  UE_LOG(LogTemp,
-    Warning,
-    TEXT("UgcId field not found or invalid in plugin descriptor: %s"),
-    *PluginDescriptorPath);
-  return -1;
-}
-
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
   const FText& DialogText) {
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 3
@@ -173,38 +101,35 @@ void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
 #endif
 }
 
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
+  TSharedPtr<IPlugin> plugin;
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-    if (AvailableMod->GetDescriptor().FriendlyName != Mod.name) {
-      continue;
+    if (AvailableMod->GetDescriptor().FriendlyName == Mod.name) {
+      plugin = AvailableMod;
+      break;
     }
-
-    FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
-
-    TArray<FString> SplitDescription;
-    Descriptor.Description.ParseIntoArray(SplitDescription, TEXT("&ugcID="));
-
-    int32 ModIOModID = INDEX_NONE;
-    if (SplitDescription.Num() >= 2) {
-      TArray<FString> SplitSubDescription;
-      SplitDescription[1].ParseIntoArray(SplitSubDescription, TEXT("&cf_ugcID="));
-      ModIOModID = SplitSubDescription.Num() ? FCString::Atoi(*SplitSubDescription[0]) : FCString::Atoi(*SplitDescription[1]);
-    }
-
-    Descriptor.Description = Mod.summary + (ModIOModID != INDEX_NONE ? "&ugcID=" + FString::FromInt(ModIOModID) : "") + "&cf_ugcID=" + FString::FromInt(Mod.id);
-    Descriptor.MarketplaceURL = Mod.links.websiteUrl;
-    Descriptor.Category = "UGC";
-    if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
-      return;
-    }
-
-    break;
   }
+
+  if (!plugin.IsValid()) {
+    return;
+  }
+
+  FPluginDescriptor Descriptor = plugin->GetDescriptor();
+
+  Descriptor.Description = Mod.summary;
+  Descriptor.MarketplaceURL = Mod.links.websiteUrl;
+  Descriptor.Category = "UGC";
+  if (!UpdatePluginDescriptor(Descriptor, plugin.ToSharedRef())) {
+    return;
+  }
+  InsertUgcIdIntoPlugin(plugin.ToSharedRef(), Mod.id);
 }
 
+// -----------------------------------------------------------------------------
 //intentional copy so we dont clobber ui
 void UCFUploadWidget::PackageModWithSettings(
   const int64 ModID,
@@ -266,12 +191,14 @@ void UCFUploadWidget::PackageModWithSettings(
     });
 }
 
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::CloseTab() {
   if (UEditorUtilitySubsystem* const EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>()) {
     EditorUtilitySubsystem->CloseTabByID(TabId);
   }
 }
 
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::PostUploadCleanup(const FCFModData& ModData) {
   const FString FullPath = ModData.Path + "/" + ModData.Name + ".zip";
   if (FPaths::ValidatePath(FullPath) && FPaths::FileExists(FullPath)) {
@@ -280,14 +207,75 @@ void UCFUploadWidget::PostUploadCleanup(const FCFModData& ModData) {
   }
 }
 
+// -----------------------------------------------------------------------------
+FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
+  FCFModData PluginData;
+  PluginData.Id = ExtractUgcIdFromPlugin(Plugin);
+  PluginData.Description = ExtractDescription(Plugin);
+  PluginData.Name = Plugin->GetDescriptor().FriendlyName;
+  PluginData.HomepageURL = Plugin->GetDescriptor().CreatedByURL;
+  PluginData.Path = FPaths::ConvertRelativePathToFull(Plugin->GetBaseDir());
+  PluginData.Version = Plugin->GetDescriptor().VersionName;
+  PluginData.MarketplaceURL = Plugin->GetDescriptor().MarketplaceURL;
+  PluginData.bIsValid = true;
+  return MoveTemp(PluginData);
+}
+
+// -----------------------------------------------------------------------------
+// NOTE: This is for backwards compatibility, before we added the UgcId field
+FString UCFUploadWidget::ExtractDescription(TSharedRef<class IPlugin> Plugin) {
+  TArray<FString> SplitDescription;
+  Plugin->GetDescriptor().Description.ParseIntoArray(SplitDescription,
+    TEXT("&cf_ugcID="));
+
+  if (SplitDescription.Num() == 0) {
+    return "";
+  }
+
+  SplitDescription[0].ParseIntoArray(SplitDescription, TEXT("&ugcID="));
+  return SplitDescription[0];
+}
+
+// -----------------------------------------------------------------------------
+int64 UCFUploadWidget::ExtractUgcIdFromPlugin(
+  TSharedRef<class IPlugin> Plugin) {
+
+  FString PluginDescriptorPath = Plugin->GetDescriptorFileName();
+  FString JsonContent;
+  if (!TryLoadPluginDescriptor(JsonContent, PluginDescriptorPath)) {
+    return -1;
+  }
+
+  TSharedPtr<FJsonObject> JsonObject;
+  if (!TryParseJsonPluginDescriptor(
+    JsonContent, JsonObject, PluginDescriptorPath)) {
+
+    return -1;
+  }
+
+  int64 UgcId;
+  if (JsonObject->TryGetNumberField(kUgcIdFieldName, UgcId)) {
+    return UgcId;
+  }
+
+  UE_LOG(LogTemp,
+    Warning,
+    TEXT("UgcId field not found or invalid in plugin descriptor: %s"),
+    *PluginDescriptorPath);
+  return -1;
+}
+
+// -----------------------------------------------------------------------------
 const TArray<FCategory>& UCFUploadWidget::GetRootCategories() const {
   return RootCategories;
 }
 
+// -----------------------------------------------------------------------------
 const TArray<FCategory>& UCFUploadWidget::GetSubCategories(const int64 ClassID) const {
   return Categories.Contains(ClassID) ? Categories[ClassID] : EmptyCategoryList;
 }
 
+// -----------------------------------------------------------------------------
 bool UCFUploadWidget::UpdatePluginDescriptor(const FPluginDescriptor& PluginDescriptor, TSharedRef<IPlugin> Plugin) {
   FText FailReason;
   if (!Plugin->UpdateDescriptor(PluginDescriptor, FailReason)) {
@@ -298,6 +286,7 @@ bool UCFUploadWidget::UpdatePluginDescriptor(const FPluginDescriptor& PluginDesc
   return true;
 }
 
+// -----------------------------------------------------------------------------
 const FCategory& UCFUploadWidget::GetRootCategoryByName(const FString& Name) const {
   for (const FCategory& Category : RootCategories) {
     if (Category.name == Name) {
@@ -308,6 +297,7 @@ const FCategory& UCFUploadWidget::GetRootCategoryByName(const FString& Name) con
   return InvalidCategory;
 }
 
+// -----------------------------------------------------------------------------
 const FCategory& UCFUploadWidget::GetSubCategoryByName(const int64 ClassID, const FString& Name) const {
   if (!Categories.Contains(ClassID)) {
     return InvalidCategory;
@@ -322,6 +312,7 @@ const FCategory& UCFUploadWidget::GetSubCategoryByName(const int64 ClassID, cons
   return InvalidCategory;
 }
 
+// -----------------------------------------------------------------------------
 FCFModData UCFUploadWidget::GetModDataByName(const FString& Name) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
@@ -337,6 +328,7 @@ FCFModData UCFUploadWidget::GetModDataByName(const FString& Name) {
   return FCFModData();
 }
 
+// -----------------------------------------------------------------------------
 FCFModData UCFUploadWidget::GetModById(const int32 Id) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
@@ -351,6 +343,41 @@ FCFModData UCFUploadWidget::GetModById(const int32 Id) {
   return FCFModData();
 }
 
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::InsertUgcIdIntoPlugin(
+  TSharedRef<IPlugin> Plugin, int64 id) {
+
+  FString PluginDescriptorPath = Plugin->GetDescriptorFileName();
+  FString JsonContent;
+  if (!TryLoadPluginDescriptor(JsonContent, PluginDescriptorPath)) {
+    return;
+  }
+
+  TSharedPtr<FJsonObject> JsonObject;
+  if (!TryParseJsonPluginDescriptor(JsonContent, JsonObject, PluginDescriptorPath)) {
+    return;
+  }
+
+  JsonObject->SetNumberField(kUgcIdFieldName, id);
+
+  // Write updated JSON back to file
+  FString UpdatedJsonContent;
+  TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&UpdatedJsonContent);
+  if (!FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer)) {
+    UE_LOG(LogTemp,
+    Error,
+    TEXT("Failed to serialize updated JSON for plugin descriptor: %s"),
+    *PluginDescriptorPath);
+    return;
+  }
+
+  if (!FFileHelper::SaveStringToFile(UpdatedJsonContent, *PluginDescriptorPath)) {
+    UE_LOG(LogTemp, Error, TEXT("Failed to save updated plugin descriptor: %s"), *PluginDescriptorPath);
+    return;
+  }
+}
+
+// -----------------------------------------------------------------------------
 bool UCFUploadWidget::IsAllContentSaved(TSharedRef<IPlugin> Plugin) {
   bool bAllContentSaved = true;
 
@@ -375,6 +402,7 @@ bool UCFUploadWidget::IsAllContentSaved(TSharedRef<IPlugin> Plugin) {
   return bAllContentSaved;
 }
 
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::SaveAndPackagePlugin(
   TSharedRef<IPlugin> Plugin,
   TArray<FCModPlatformData> BuildPlatforms) {
@@ -403,6 +431,7 @@ void UCFUploadWidget::SaveAndPackagePlugin(
   FMessageDialog::Open(EAppMsgType::Ok, PackageModError);
 }
 
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
   const FString& OutputDirectory,
   TArray<FCModPlatformData>& BuildPlatforms) {
@@ -455,6 +484,7 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
     });
 }
 
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory) {
   const FText TaskName = LOCTEXT("CreatingArchive", "CurseForge");
   const FString CommandLine = FString::Printf(TEXT("PackageUGC -Archive=\"true\" -StagingDirectory=\"%s\""), *OutputDirectory);
@@ -480,4 +510,49 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory) {
         }
         });
     });
+}
+
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::NativeConstruct() {
+  Super::NativeConstruct();
+
+  TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
+
+  for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
+    AddModDataToUI(GetPluginData(AvailableMod));
+  }
+}
+
+// -----------------------------------------------------------------------------
+bool UCFUploadWidget::TryLoadPluginDescriptor(FString& JsonContent,
+                                              FString& PluginDescriptorPath) {
+
+  if (!FFileHelper::LoadFileToString(JsonContent, *PluginDescriptorPath)) {
+    UE_LOG(LogTemp,
+      Error,
+      TEXT("Failed to load plugin descriptor: %s"),
+      *PluginDescriptorPath);
+    return false;
+  }
+  return true;
+}
+
+// -----------------------------------------------------------------------------
+bool UCFUploadWidget::TryParseJsonPluginDescriptor(
+  FString& JsonContent,
+  TSharedPtr<FJsonObject>& JsonObject,
+  FString& PluginDescriptorPath) {
+
+  TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonContent);
+  if (!FJsonSerializer::Deserialize(
+    Reader, JsonObject) || !JsonObject.IsValid()) {
+
+    UE_LOG(LogTemp,
+      Error,
+      TEXT("Failed to parse JSON for plugin descriptor: %s"),
+      *PluginDescriptorPath);
+    return false;
+  }
+  return true;
 }

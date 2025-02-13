@@ -8,7 +8,7 @@ This plugin was contributed by our friends at Blue Isle
 
 ## Getting started
 
-> **NOTE:** In order to be able to cook mods locally, you need a sourc ebuild of
+> **NOTE:** In order to be able to cook mods locally, you need a source build of
 > UE to recompile the AutomationTool project and support the PackageUGC command.
 > See https://forums.unrealengine.com/t/inside-unreal-adding-mod-support-with-the-simple-ugc-plugin/147657
 > for more information.
@@ -65,7 +65,7 @@ or change the code so that it runs other commands.
 > **NOTE:** We can also provide you with a sample PackageUGC command that
 > support archiving, please contact us for this sample.
 
-After the the mod has been packaged, both the source and the cooked package have
+After the mod has been packaged, both the source and the cooked package have
 to be uploaded to the CF servers. This is because a mod can be cooked to many
 platforms and we use the source as the logical parent file for the cooked mods.
 

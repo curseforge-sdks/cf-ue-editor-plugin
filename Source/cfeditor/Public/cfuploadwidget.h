@@ -130,9 +130,15 @@ private:
 	FCFModData GetPluginData(TSharedRef<class IPlugin>);
 	FString ExtractDescription(TSharedRef<class IPlugin> Plugin);
 	int64 ExtractUgcIdFromPlugin(TSharedRef<class IPlugin> Plugin);
-
+	void InsertUgcIdIntoPlugin(TSharedRef<class IPlugin> Plugin, int64 id);
 	bool IsAllContentSaved(TSharedRef<IPlugin> Plugin);
 	void SaveAndPackagePlugin(TSharedRef<IPlugin> Plugin, TArray<FCModPlatformData> BuildPlatforms);
 	void PackagePlugin(TSharedRef<IPlugin> Plugin, const FString& OutputDirectory, TArray<FCModPlatformData>& BuildPlatforms);
 	void ArchivePlugin(const FString& OutputDirectory);
+	bool TryLoadPluginDescriptor(FString& JsonContent,
+															 FString& PluginDescriptorPath);
+
+	bool TryParseJsonPluginDescriptor(FString& JsonContent,
+																		TSharedPtr<FJsonObject>& JsonObject,
+																		FString& PluginDescriptorPath);
 };
