@@ -46,3 +46,5 @@ int32 FModsLoader::GetNumAvailableGameMods() {
 	FindAvailableGameMods(AvailableGameMods);
 	return AvailableGameMods.Num();
 }
+
+#undef LOCTEXT_NAMESPACE
