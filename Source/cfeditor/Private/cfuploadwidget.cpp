@@ -212,7 +212,8 @@ FCFModData UCFUploadWidget::GetPluginData(TSharedRef<class IPlugin> Plugin) {
   FCFModData PluginData;
   PluginData.Id = ExtractUgcIdFromPlugin(Plugin);
   PluginData.Description = ExtractDescription(Plugin);
-  PluginData.Name = Plugin->GetDescriptor().FriendlyName;
+  PluginData.Name = Plugin->GetName();
+  PluginData.FriendlyName = Plugin->GetDescriptor().FriendlyName;
   PluginData.HomepageURL = Plugin->GetDescriptor().CreatedByURL;
   PluginData.Path = FPaths::ConvertRelativePathToFull(Plugin->GetBaseDir());
   PluginData.Version = Plugin->GetDescriptor().VersionName;
@@ -318,7 +319,7 @@ FCFModData UCFUploadWidget::GetModDataByName(const FString& Name) {
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-    if (AvailableMod->GetDescriptor().FriendlyName != Name) {
+    if (AvailableMod->GetName() != Name) {
       continue;
     }
 

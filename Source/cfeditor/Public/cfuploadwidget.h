@@ -39,6 +39,8 @@ struct FCFModData {
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	FString Name = "";
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	FString FriendlyName = "";
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	FString LogoPath = "";
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	FString Summary = "";
