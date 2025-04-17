@@ -108,7 +108,7 @@ void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod) {
 
   TSharedPtr<IPlugin> plugin;
   for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-    if (AvailableMod->GetDescriptor().FriendlyName == Mod.name) {
+    if (AvailableMod->GetName() == Mod.name) {
       plugin = AvailableMod;
       break;
     }
