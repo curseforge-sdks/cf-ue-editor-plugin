@@ -557,3 +557,5 @@ bool UCFUploadWidget::TryParseJsonPluginDescriptor(
   }
   return true;
 }
+
+#undef LOCTEXT_NAMESPACE

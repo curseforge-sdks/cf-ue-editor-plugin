@@ -96,3 +96,5 @@ void AuthenticationProviderEmailCodeImpl::OpenSignInWindow() {
 		EditorWidget,
 		UCFUploadWidget::TabId);
 }
+
+#undef LOCTEXT_NAMESPACE
