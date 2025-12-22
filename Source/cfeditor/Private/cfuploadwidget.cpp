@@ -573,7 +573,11 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
               const_cast<TArray<FCModPlatformData>&>(BuildPlatforms));
           }
           else {
-            ArchivePlugin(OutputDirectory);
+            FString ZipFileName = FPaths::Combine(
+              OutputDirectory,
+              Plugin->GetName() + TEXT(".zip")
+            );
+            ArchivePlugin(OutputDirectory, ZipFileName);
           }
         }
         else {
@@ -587,31 +591,33 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
 }
 
 // -----------------------------------------------------------------------------
-void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory) {
-  const FText TaskName = LOCTEXT("CreatingArchive", "CurseForge");
-  const FString CommandLine = FString::Printf(TEXT("PackageUGC -Archive=\"true\" -StagingDirectory=\"%s\""), *OutputDirectory);
-  const FText PackagingText = LOCTEXT("SimpleUGCEditor_PackagePluginTaskName2", "Creating Archive");
+void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
+                                    const FString& ZipFileName) {
 
-  IUATHelperModule::Get().CreateUatTask(
-    CommandLine,
-    TaskName,
-    PackagingText,
-    PackagingText,
-    FCFEditorStyle::Get().GetBrush(TEXT("cfeditor.ShareUGC")),
-#if ENGINE_MAJOR_VERSION >= 5
-    nullptr,
-#endif
-    [this, OutputDirectory](FString TaskResult, double TimeSec) {
-      AsyncTask(ENamedThreads::GameThread, [this, TaskResult, OutputDirectory]() {
-        if (TaskResult == "Completed") {
-          OnModPackagingComplete();
-        }
-        else {
-          ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Archive UGC"), LOCTEXT("buildfail", "Your ugc failed to archive. Please check the output log for more information."));
-          OnModPackagingFailed();
-        }
-        });
-    });
+  auto FilesToZip = MakeShared<TArray<FString>>(
+    TArray<FString>{OutputDirectory});
+
+  auto f = cfcore::CFCoreContext::GetInstance()->Utils()->Compression()->Zip(
+    FilesToZip,
+    ZipFileName,
+    cfcore::ICompressionService::FProgressDelegate::CreateLambda(
+      [this](const cfcore::CompressionProgress& Progress) {
+
+      UE_LOG(LogTemp,
+             Log,
+             TEXT("Archive Plugin progress: %d%%"),
+             Progress.progress);
+    })
+  );
+
+  f.Next([this](ECompressionError Error) {
+    if (Error == ECompressionError::None) {
+      OnModPackagingComplete();
+      return;
+    }
+
+    OnModPackagingFailed();
+  });
 }
 
 // -----------------------------------------------------------------------------

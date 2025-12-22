@@ -100,6 +100,9 @@ public:
 	void CloseTab();
 	UFUNCTION(BlueprintCallable)
 	void PostUploadCleanup(const FCFModData& ModData);
+  UFUNCTION(BlueprintCallable)
+	void ArchivePlugin(const FString& OutputDirectory,
+                     const FString& ZipFileName);
 	UFUNCTION(BlueprintPure)
 	const TArray<FCategory>& GetRootCategories() const;
 	UFUNCTION(BlueprintPure)
@@ -140,7 +143,6 @@ private:
 	bool IsAllContentSaved(TSharedRef<IPlugin> Plugin);
 	void SaveAndPackagePlugin(TSharedRef<IPlugin> Plugin, TArray<FCModPlatformData> BuildPlatforms);
 	void PackagePlugin(TSharedRef<IPlugin> Plugin, const FString& OutputDirectory, TArray<FCModPlatformData>& BuildPlatforms);
-	void ArchivePlugin(const FString& OutputDirectory);
 	bool TryLoadPluginDescriptor(FString& JsonContent,
 															 FString& PluginDescriptorPath);
 
