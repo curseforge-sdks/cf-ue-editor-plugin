@@ -102,7 +102,7 @@ void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
 }
 
 // -----------------------------------------------------------------------------
-void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod) {
+void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod, ECFCoreAutoCookingType AutoCookingType) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
@@ -127,6 +127,7 @@ void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod) {
     return;
   }
   InsertUgcIdIntoPlugin(plugin.ToSharedRef(), Mod.id);
+  InsertAutoCookingTypeIntoPlugin(plugin.ToSharedRef(), AutoCookingType);
 }
 
 // -----------------------------------------------------------------------------
@@ -267,6 +268,47 @@ int64 UCFUploadWidget::ExtractUgcIdFromPlugin(
 }
 
 // -----------------------------------------------------------------------------
+ECFCoreAutoCookingType UCFUploadWidget::ExtractAutoCookingTypeFromPlugin(
+  TSharedRef<class IPlugin> Plugin) {
+
+  FString PluginDescriptorPath = Plugin->GetDescriptorFileName();
+  FString JsonContent;
+  if (!TryLoadPluginDescriptor(JsonContent, PluginDescriptorPath)) {
+    UE_LOG(LogTemp, Warning, TEXT("Failed to load plugin descriptor: %s"), *PluginDescriptorPath);
+    return ECFCoreAutoCookingType::PCOnly; // Safe default
+  }
+
+  TSharedPtr<FJsonObject> JsonObject;
+  if (!TryParseJsonPluginDescriptor(
+    JsonContent, JsonObject, PluginDescriptorPath)) {
+
+    UE_LOG(LogTemp, Warning, TEXT("Failed to parse JSON in plugin descriptor: %s"), *PluginDescriptorPath);
+    return ECFCoreAutoCookingType::PCOnly;
+    }
+
+  FString CookingTypeStr;
+  if (!JsonObject->TryGetStringField(TEXT("AutoCookingType"), CookingTypeStr)) {
+    UE_LOG(LogTemp, Verbose, TEXT("AutoCookingType field not found or not a string in %s. Defaulting to All."), *PluginDescriptorPath);
+    return ECFCoreAutoCookingType::PCOnly;
+  }
+
+  const UEnum* EnumPtr = StaticEnum<ECFCoreAutoCookingType>();
+  if (!EnumPtr) {
+    UE_LOG(LogTemp, Error, TEXT("Failed to get StaticEnum for ECFCoreAutoCookingType."));
+    return ECFCoreAutoCookingType::PCOnly;
+  }
+
+  const FString FullEnumName = FString::Printf(TEXT("ECFCoreAutoCookingType::%s"), *CookingTypeStr);
+  int64 EnumValue = EnumPtr->GetValueByNameString(FullEnumName);
+  if (EnumValue == INDEX_NONE) {
+    UE_LOG(LogTemp, Warning, TEXT("Invalid AutoCookingType value '%s' in plugin descriptor: %s. Defaulting to All."), *CookingTypeStr, *PluginDescriptorPath);
+    return ECFCoreAutoCookingType::PCOnly;
+  }
+
+  return static_cast<ECFCoreAutoCookingType>(EnumValue);
+}
+
+// -----------------------------------------------------------------------------
 const TArray<FCategory>& UCFUploadWidget::GetRootCategories() const {
   return RootCategories;
 }
@@ -330,6 +372,21 @@ FCFModData UCFUploadWidget::GetModDataByName(const FString& Name) {
 }
 
 // -----------------------------------------------------------------------------
+ECFCoreAutoCookingType UCFUploadWidget::GetModAutoCookingTypeByName(const FString& Name) {
+  TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
+  FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
+
+  for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
+    if (AvailableMod->GetName() == Name) {
+      return ExtractAutoCookingTypeFromPlugin(AvailableMod);
+    }
+  }
+
+  UE_LOG(LogTemp, Warning, TEXT("Mod with name '%s' not found among available game mods."), *Name);
+  return ECFCoreAutoCookingType::PCOnly;
+}
+
+// -----------------------------------------------------------------------------
 FCFModData UCFUploadWidget::GetModById(const int32 Id) {
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
@@ -369,6 +426,50 @@ void UCFUploadWidget::InsertUgcIdIntoPlugin(
     Error,
     TEXT("Failed to serialize updated JSON for plugin descriptor: %s"),
     *PluginDescriptorPath);
+    return;
+  }
+
+  if (!FFileHelper::SaveStringToFile(UpdatedJsonContent, *PluginDescriptorPath)) {
+    UE_LOG(LogTemp, Error, TEXT("Failed to save updated plugin descriptor: %s"), *PluginDescriptorPath);
+    return;
+  }
+}
+
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::InsertAutoCookingTypeIntoPlugin(
+  TSharedRef<class IPlugin> Plugin,
+  ECFCoreAutoCookingType AutoCookingType) {
+
+  FString PluginDescriptorPath = Plugin->GetDescriptorFileName();
+  FString JsonContent;
+  if (!TryLoadPluginDescriptor(JsonContent, PluginDescriptorPath)) {
+    return;
+  }
+
+  TSharedPtr<FJsonObject> JsonObject;
+  if (!TryParseJsonPluginDescriptor(
+    JsonContent, JsonObject, PluginDescriptorPath)) {
+    return;
+    }
+
+  const UEnum* EnumPtr = StaticEnum<ECFCoreAutoCookingType>();
+  if (!EnumPtr) {
+    UE_LOG(LogTemp, Error, TEXT("Failed to get StaticEnum for ECFCoreAutoCookingType."));
+    return;
+  }
+
+  FString EnumName = EnumPtr->GetNameStringByValue(static_cast<int64>(AutoCookingType));
+  int32 DoubleColonIndex;
+  if (EnumName.FindLastChar(':', DoubleColonIndex)) {
+    EnumName = EnumName.Mid(DoubleColonIndex + 1);
+  }
+
+  JsonObject->SetStringField(TEXT("AutoCookingType"), EnumName);
+
+  FString UpdatedJsonContent;
+  TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&UpdatedJsonContent);
+  if (!FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer)) {
+    UE_LOG(LogTemp, Error, TEXT("Failed to serialize updated JSON for plugin descriptor: %s"), *PluginDescriptorPath);
     return;
   }
 
@@ -557,5 +658,3 @@ bool UCFUploadWidget::TryParseJsonPluginDescriptor(
   }
   return true;
 }
-
-#undef LOCTEXT_NAMESPACE

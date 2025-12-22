@@ -60,7 +60,7 @@ void AuthenticationProviderEmailCodeImpl::LogoutAsync() {
 }
 
 void AuthenticationProviderEmailCodeImpl::OpenSignInWindow() {
-	const TCHAR id[] = TEXT("ModUploadWindow/EUW_SignInFlow.EUW_SignInFlow");
+	const TCHAR id[] = TEXT("ModUploadWindow/EUW_CFE_SignInFlow.EUW_CFE_SignInFlow");
 
 #if ENGINE_MAJOR_VERSION >= 5
 	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
@@ -96,5 +96,3 @@ void AuthenticationProviderEmailCodeImpl::OpenSignInWindow() {
 		EditorWidget,
 		UCFUploadWidget::TabId);
 }
-
-#undef LOCTEXT_NAMESPACE

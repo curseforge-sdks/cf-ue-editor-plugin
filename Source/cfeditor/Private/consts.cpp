@@ -24,8 +24,8 @@ SOFTWARE.*/
 
 namespace cfeditor {
 
-const int64 kCFGameId = 0;
-const TCHAR kCFApiKey[] = TEXT("");
+const int64 kCFGameId = 83981;
+const TCHAR kCFApiKey[] = TEXT("$2a$10$zluKQhMS4gkGGr1fH/xiDOKsMIICMCShXhIl4xOOYOYHrb9bAqJ9e");
 const TCHAR kGameName[] = TEXT("");
 
 const TCHAR kUIMenuBarLabel[] = TEXT("UGC");

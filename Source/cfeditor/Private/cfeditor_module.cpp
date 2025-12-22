@@ -86,7 +86,7 @@ void FCFEditorModule::OnCFCoreSdkInitialized() {
 	CFCoreSdkService_->RetrieveCategoriesAsync();
 
 	// PerformAuthentication
-	AuthenticationProvider_->LoginAsync();
+	//AuthenticationProvider_->LoginAsync();
 }
 
 // ICFCoreSdkServiceDelegate
@@ -126,7 +126,7 @@ void FCFEditorModule::OnAuthenticationError(const FText& ErrorMsg) {
 }
 
 void FCFEditorModule::OpenSignoutWindow() {
-	const TCHAR id[] = TEXT("ModUploadWindow/EUW_SignOutFlow.EUW_SignOutFlow");
+	const TCHAR id[] = TEXT("ModUploadWindow/EUW_CFE_SignOutFlow.EUW_CFE_SignOutFlow");
 
 #if ENGINE_MAJOR_VERSION >= 5
 	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);
@@ -163,7 +163,7 @@ void FCFEditorModule::OpenSignoutWindow() {
 }
 
 void FCFEditorModule::OpenUploadMODWindow() {
-	const TCHAR id[] = TEXT("ModUploadWindow/ModUploadWindow.ModUploadWindow");
+	const TCHAR id[] = TEXT("ModUploadWindow/UEW_CFE_ModUploadWindow.UEW_CFE_ModUploadWindow");
 
 #if ENGINE_MAJOR_VERSION >= 5
 	FString Resource = FString::Printf(TEXT("/%s/%s"), TEXT(UE_PLUGIN_NAME), id);

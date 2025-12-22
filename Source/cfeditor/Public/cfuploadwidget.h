@@ -93,7 +93,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ShowConfirmationDialog(const FText& DialogTitle, const FText& DialogText);
 	UFUNCTION(BlueprintCallable)
-	void UpdatePluginWithModData(const FCFCoreMod& Mod);
+	void UpdatePluginWithModData(const FCFCoreMod& Mod, ECFCoreAutoCookingType AutoCookingType);
 	UFUNCTION(BlueprintCallable)
 	void PackageModWithSettings(const int64 ModID, const FString& Version, const FString& Path, TArray<FCModPlatformData> BuildPlatforms);
 	UFUNCTION(BlueprintCallable)
@@ -110,6 +110,8 @@ public:
 	const FCategory& GetSubCategoryByName(const int64 ClassID, const FString& Name) const;
 	UFUNCTION(BlueprintPure)
 	FCFModData GetModDataByName(const FString& Name);
+	UFUNCTION(BlueprintPure)
+	ECFCoreAutoCookingType GetModAutoCookingTypeByName(const FString& Name);
 	UFUNCTION(BlueprintPure)
 	FCFModData GetModById(const int32 Id);
 
@@ -132,7 +134,9 @@ private:
 	FCFModData GetPluginData(TSharedRef<class IPlugin>);
 	FString ExtractDescription(TSharedRef<class IPlugin> Plugin);
 	int64 ExtractUgcIdFromPlugin(TSharedRef<class IPlugin> Plugin);
+	ECFCoreAutoCookingType ExtractAutoCookingTypeFromPlugin(TSharedRef<class IPlugin> Plugin);
 	void InsertUgcIdIntoPlugin(TSharedRef<class IPlugin> Plugin, int64 id);
+	void InsertAutoCookingTypeIntoPlugin(TSharedRef<class IPlugin> Plugin, ECFCoreAutoCookingType AutoCookingType);
 	bool IsAllContentSaved(TSharedRef<IPlugin> Plugin);
 	void SaveAndPackagePlugin(TSharedRef<IPlugin> Plugin, TArray<FCModPlatformData> BuildPlatforms);
 	void PackagePlugin(TSharedRef<IPlugin> Plugin, const FString& OutputDirectory, TArray<FCModPlatformData>& BuildPlatforms);
