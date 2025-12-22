@@ -56,7 +56,9 @@ void AuthenticationProviderSteamImpl::LoginAsync() {
 	const IOnlineIdentityPtr OnlineIdentity = OnlineSub ?
 		OnlineSub->GetIdentityInterface() : nullptr;
 
-	FString GenericError = FString::Printf(kErrorSteamConnectFailureGeneric, kGameName);
+  FStringFormatOrderedArguments FormatArgs{ kGameName };
+	FString GenericError = FString::Format(kErrorSteamConnectFailureGeneric,
+                                         FormatArgs);
 
 	if (!OnlineIdentity.IsValid()) {
 		Delegate_->OnAuthenticationError(FText::FromString(GenericError));
