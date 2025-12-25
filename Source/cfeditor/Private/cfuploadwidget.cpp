@@ -571,13 +571,8 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
               Plugin,
               OutputDirectory,
               const_cast<TArray<FCModPlatformData>&>(BuildPlatforms));
-          }
-          else {
-            FString ZipFileName = FPaths::Combine(
-              OutputDirectory,
-              Plugin->GetName() + TEXT(".zip")
-            );
-            ArchivePlugin(OutputDirectory, ZipFileName);
+          } else {
+            OnModPackagingComplete();
           }
         }
         else {
@@ -612,11 +607,11 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
 
   f.Next([this](ECompressionError Error) {
     if (Error == ECompressionError::None) {
-      OnModPackagingComplete();
+      OnArchivePluginComplete();
       return;
     }
 
-    OnModPackagingFailed();
+    OnArchivePluginFailed();
   });
 }
 
