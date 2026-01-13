@@ -124,10 +124,6 @@ public:
 	void OnModPackagingFailed();
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnModPackagingComplete();
-  UFUNCTION(BlueprintImplementableEvent)
-  void OnArchivePluginComplete();
-  UFUNCTION(BlueprintImplementableEvent)
-  void OnArchivePluginFailed();
 
 	static TMap<int64, TArray<FCategory>> Categories;
 	static TArray<FCategory> RootCategories;

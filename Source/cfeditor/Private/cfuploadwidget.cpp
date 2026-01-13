@@ -607,11 +607,11 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
 
   f.Next([this](ECompressionError Error) {
     if (Error == ECompressionError::None) {
-      OnArchivePluginComplete();
+      OnModPackagingComplete();
       return;
     }
 
-    OnArchivePluginFailed();
+    OnModPackagingFailed();
   });
 }
 
