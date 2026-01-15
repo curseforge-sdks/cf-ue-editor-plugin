@@ -36,7 +36,7 @@ using namespace cfeditor;
 
 // #define LOCTEXT_NAMESPACE "AuthenticationProviderSteamImpl"
 
-const TCHAR kErrorSteamConnectFailureGeneric[] =
+constexpr TCHAR kErrorSteamConnectFailureGeneric[] =
 	TEXT("Failed to authenticate with Steam. Please make sure that your client is logged in to an account that owns %s");
 
 AuthenticationProviderSteamImpl::AuthenticationProviderSteamImpl(
@@ -56,9 +56,8 @@ void AuthenticationProviderSteamImpl::LoginAsync() {
 	const IOnlineIdentityPtr OnlineIdentity = OnlineSub ?
 		OnlineSub->GetIdentityInterface() : nullptr;
 
-  FStringFormatOrderedArguments FormatArgs{ kGameName };
-	FString GenericError = FString::Format(kErrorSteamConnectFailureGeneric,
-                                         FormatArgs);
+  FString GenericError = FString::Printf(kErrorSteamConnectFailureGeneric,
+                                         kGameName);
 
 	if (!OnlineIdentity.IsValid()) {
 		Delegate_->OnAuthenticationError(FText::FromString(GenericError));
