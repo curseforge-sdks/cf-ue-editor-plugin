@@ -596,7 +596,7 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
     FilesToZip,
     ZipFileName,
     cfcore::ICompressionService::FProgressDelegate::CreateLambda(
-      [this](const cfcore::CompressionProgress& Progress) {
+      [this](const FCompressionProgress& Progress) {
 
       UE_LOG(LogTemp,
              Log,
@@ -659,3 +659,5 @@ bool UCFUploadWidget::TryParseJsonPluginDescriptor(
   }
   return true;
 }
+
+#undef LOCTEXT_NAMESPACE
