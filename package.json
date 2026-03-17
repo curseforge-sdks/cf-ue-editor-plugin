@@ -1,0 +1,19 @@
+{
+  "name": "cf-ue-editor-plugin",
+  "version": "1.10.2",
+  "description": "ci/cd scripts",
+  "copyright": "Overwolf Ltd.",
+  "main": "index.js",
+  "scripts": {
+    "dist:patch": "gulp dist -bump:patch",
+    "dist:major": "gulp dist -bump:major",
+    "dist:minor": "gulp dist"
+  },
+  "author": "Overwolf Ltd.",
+  "license": "MIT",
+  "dependencies": {
+    "del": "^6.0.0",
+    "gulp": "^4.0.2",
+    "gulp-zip": "^5.1.0"
+  }
+}
