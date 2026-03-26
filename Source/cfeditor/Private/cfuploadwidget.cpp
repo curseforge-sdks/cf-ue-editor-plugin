@@ -572,7 +572,8 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
               OutputDirectory,
               const_cast<TArray<FCModPlatformData>&>(BuildPlatforms));
           } else {
-            OnModPackagingComplete();
+            const FString ZipFileName = OutputDirectory / FPaths::GetBaseFilename(OutputDirectory) + ".zip";
+            ArchivePlugin(OutputDirectory, ZipFileName);
           }
         }
         else {
