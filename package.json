@@ -1,6 +1,6 @@
 {
   "name": "cf-ue-editor-plugin",
-  "version": "1.10.2",
+  "version": "1.10.3",
   "description": "ci/cd scripts",
   "copyright": "Overwolf Ltd.",
   "main": "index.js",
