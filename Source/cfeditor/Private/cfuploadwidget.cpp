@@ -23,6 +23,7 @@ SOFTWARE.*/
 #include "cfuploadwidget.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
+#include "HAL/IConsoleManager.h"
 
 #include "Interfaces/IMainFrameModule.h"
 #include "EditorUtilitySubsystem.h"
@@ -51,6 +52,13 @@ TArray<FCategory> UCFUploadWidget::EmptyCategoryList;
 FName UCFUploadWidget::TabId = NAME_None;
 
 const FString kUgcIdFieldName = TEXT("CfUgcId");
+
+namespace {
+TAutoConsoleVariable<int32> CVarCFEditorMockPackageUGC(
+  TEXT("cfeditor.MockPackageUGC"),
+  0,
+  TEXT("When set to 1, cfeditor skips PackageUGC and archives the raw mod plugin directory for testing uploads."));
+}
 
 // -----------------------------------------------------------------------------
 void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
@@ -146,6 +154,16 @@ void UCFUploadWidget::PackageModWithSettings(
     return;
   }
 
+  if (ShouldMockPackageUGC()) {
+    UE_LOG(LogTemp,
+      Warning,
+      TEXT("[cfeditor] MockPackageUGC is enabled. Skipping PackageUGC prepare for mod id %lld."),
+      ModID);
+
+    ContinuePackagingPreparedMod(OutAvailableGameMods, ModID, BuildPlatforms);
+    return;
+  }
+
   const FString CommandLine = FString::Printf(
     TEXT("PackageUGC -Prepare=\"true\" -StagingDirectory=\"%s\""), *Path);
 
@@ -168,21 +186,10 @@ void UCFUploadWidget::PackageModWithSettings(
           ModID,
           BuildPlatforms]() {
             if (TaskResult == "Completed") {
-              for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-                const FCFModData ModData = GetPluginData(AvailableMod);
-                if (ModData.Id == ModID) {
-                  FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
-                  Descriptor.Version = Descriptor.Version++;
-                  Descriptor.VersionName = FGuid::NewGuid().ToString();
-                  Descriptor.Category = "UGC";
-                  if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
-                    return;
-                  }
-
-                  SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
-                  return;
-                }
-              }
+              ContinuePackagingPreparedMod(
+                OutAvailableGameMods,
+                ModID,
+                BuildPlatforms);
             }
             else {
               ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
@@ -505,6 +512,51 @@ bool UCFUploadWidget::IsAllContentSaved(TSharedRef<IPlugin> Plugin) {
 }
 
 // -----------------------------------------------------------------------------
+bool UCFUploadWidget::ContinuePackagingPreparedMod(
+  const TArray<TSharedRef<IPlugin>>& AvailableGameMods,
+  int64 ModID,
+  TArray<FCModPlatformData> BuildPlatforms) {
+
+  for (TSharedRef<IPlugin> AvailableMod : AvailableGameMods) {
+    const FCFModData ModData = GetPluginData(AvailableMod);
+    if (ModData.Id != ModID) {
+      continue;
+    }
+
+    if (!PreparePluginForUpload(AvailableMod)) {
+      return false;
+    }
+
+    SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
+    return true;
+  }
+
+  UE_LOG(LogTemp,
+    Error,
+    TEXT("[cfeditor] Failed to find a matching project mod for mod id %lld."),
+    ModID);
+  ShowConfirmationDialog(
+    LOCTEXT("PackageFailureMissingModTitle", "Package Failure"),
+    LOCTEXT("PackageFailureMissingMod", "Failed to find the matching mod plugin in the project."));
+  OnModPackagingFailed();
+  return false;
+}
+
+// -----------------------------------------------------------------------------
+bool UCFUploadWidget::PreparePluginForUpload(TSharedRef<IPlugin> Plugin) {
+  FPluginDescriptor Descriptor = Plugin->GetDescriptor();
+  Descriptor.Version += 1;
+  Descriptor.VersionName = FGuid::NewGuid().ToString();
+  Descriptor.Category = "UGC";
+  return UpdatePluginDescriptor(Descriptor, Plugin);
+}
+
+// -----------------------------------------------------------------------------
+bool UCFUploadWidget::ShouldMockPackageUGC() const {
+  return CVarCFEditorMockPackageUGC.GetValueOnGameThread() != 0;
+}
+
+// -----------------------------------------------------------------------------
 void UCFUploadWidget::SaveAndPackagePlugin(
   TSharedRef<IPlugin> Plugin,
   TArray<FCModPlatformData> BuildPlatforms) {
@@ -538,6 +590,18 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
   const FString& OutputDirectory,
   TArray<FCModPlatformData>& BuildPlatforms) {
   if (!BuildPlatforms.Num()) {
+    return;
+  }
+
+  if (ShouldMockPackageUGC()) {
+    UE_LOG(LogTemp,
+      Warning,
+      TEXT("[cfeditor] MockPackageUGC is enabled. Skipping PackageUGC cook for plugin '%s' and archiving its directory."),
+      *Plugin->GetName());
+
+    const FString ZipFileName =
+      OutputDirectory / FPaths::GetBaseFilename(OutputDirectory) + TEXT(".zip");
+    ArchivePlugin(OutputDirectory, ZipFileName);
     return;
   }
 
@@ -589,6 +653,10 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
 // -----------------------------------------------------------------------------
 void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
                                     const FString& ZipFileName) {
+
+  if (FPaths::FileExists(ZipFileName)) {
+    IFileManager::Get().Delete(*ZipFileName);
+  }
 
   auto FilesToZip = MakeShared<TArray<FString>>(
     TArray<FString>{OutputDirectory});

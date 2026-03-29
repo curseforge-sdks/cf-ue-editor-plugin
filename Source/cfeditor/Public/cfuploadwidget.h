@@ -132,6 +132,11 @@ public:
 	FCategory InvalidCategory;
 
 private:
+	bool ContinuePackagingPreparedMod(const TArray<TSharedRef<class IPlugin>>& AvailableGameMods,
+																	 int64 ModID,
+																	 TArray<FCModPlatformData> BuildPlatforms);
+	bool PreparePluginForUpload(TSharedRef<class IPlugin> Plugin);
+	bool ShouldMockPackageUGC() const;
 	bool UpdatePluginDescriptor(const struct FPluginDescriptor& PluginDescriptor, TSharedRef<class IPlugin> Plugin);
 	void NativeConstruct() override;
 	FCFModData GetPluginData(TSharedRef<class IPlugin>);
