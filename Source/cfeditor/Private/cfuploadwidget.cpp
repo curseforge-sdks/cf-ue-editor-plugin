@@ -41,6 +41,7 @@ SOFTWARE.*/
 #include "Runtime/Core/Public/Async/Async.h"
 #include "cfcore_context.h"
 #include "mods_loader.h"
+#include "cfuploadwidget_helpers.h"
 
 #define LOCTEXT_NAMESPACE "FCFEditorModule"
 
@@ -54,15 +55,21 @@ const FString kUgcIdFieldName = TEXT("CfUgcId");
 
 // -----------------------------------------------------------------------------
 void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
-  const FString& DefaultPath,
-  const FString& FileTypes,
-  FString& OutputPath,
-  bool bIsDirectory) {
+                                     const FString& DefaultPath,
+                                     const FString& FileTypes,
+                                     FString& OutputPath,
+                                     bool bIsDirectory) {
+
   void* ParentWindowWindowHandle = nullptr;
-  IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-  const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+  IMainFrameModule& MainFrameModule = 
+    FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+
+  const TSharedPtr<SWindow>& MainFrameParentWindow = 
+    MainFrameModule.GetParentWindow();
+
   if (MainFrameParentWindow.IsValid() &&
-    MainFrameParentWindow->GetNativeWindow().IsValid()) {
+      MainFrameParentWindow->GetNativeWindow().IsValid()) {
+    
     ParentWindowWindowHandle =
       MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
   }
@@ -76,7 +83,10 @@ void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
     }
     else {
       TArray<FString> OutFileNames;
-      uint32 SelectionFlag = 0; //A value of 0 represents single file selection while a value of 1 represents multiple file selection
+
+      // A value of 0 represents single file selection while a value of 1
+      // represents multiple file selection
+      uint32 SelectionFlag = 0;
       DesktopPlatform->OpenFileDialog(ParentWindowWindowHandle,
         DialogTitle,
         DefaultPath,
@@ -93,7 +103,7 @@ void UCFUploadWidget::OpenFileDialog(const FString& DialogTitle,
 
 // -----------------------------------------------------------------------------
 void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
-  const FText& DialogText) {
+                                             const FText& DialogText) {
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 3
   FMessageDialog::Open(EAppMsgType::Ok, DialogText, DialogTitle);
 #else
@@ -102,12 +112,15 @@ void UCFUploadWidget::ShowConfirmationDialog(const FText& DialogTitle,
 }
 
 // -----------------------------------------------------------------------------
-void UCFUploadWidget::UpdatePluginWithModData(const FCFCoreMod& Mod, ECFCoreAutoCookingType AutoCookingType) {
+void UCFUploadWidget::UpdatePluginWithModData(
+  const FCFCoreMod& Mod,
+  ECFCoreAutoCookingType AutoCookingType) {
+
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
 
   TSharedPtr<IPlugin> plugin;
-  for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
+  for (const TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
     if (AvailableMod->GetName() == Mod.name) {
       plugin = AvailableMod;
       break;
@@ -140,56 +153,456 @@ void UCFUploadWidget::PackageModWithSettings(
 
   TArray<TSharedRef<IPlugin>> OutAvailableGameMods;
   FModsLoader::FindAvailableGameMods(OutAvailableGameMods);
-  if (FPaths::FileExists(Path)) {
-    ShowConfirmationDialog(LOCTEXT("PackageFailureAlreadyExistsTitle", "Package Failure"), LOCTEXT("PackageFailureAlreadyExists", "Failed to package the mod because there's already a packaged mod present. Please clear your mod's build folder."));
-    OnModPackagingFailed();
+  for (const TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
+    const FCFModData ModData = GetPluginData(AvailableMod);
+    if (ModData.Id != ModID) {
+      continue;
+    }
+
+    const FString PluginPath = FPaths::ConvertRelativePathToFull(AvailableMod->GetBaseDir());
+    const FString CleanupPath = Path.IsEmpty() ? PluginPath : Path;
+
+    FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
+    Descriptor.Version++;
+    Descriptor.VersionName = Version.IsEmpty() ? FGuid::NewGuid().ToString() : Version;
+    Descriptor.Category = "UGC";
+    if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
+      OnModPackagingFailed();
+      return;
+    }
+
+    SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
     return;
   }
 
-  const FString CommandLine = FString::Printf(
-    TEXT("PackageUGC -Prepare=\"true\" -StagingDirectory=\"%s\""), *Path);
+  ShowConfirmationDialog(
+    LOCTEXT("PackageFailureModNotFoundTitle", "Package Failure"),
+    FText::Format(
+      LOCTEXT("PackageFailureModNotFound", "Could not find a mod with id {0}."),
+      FText::AsNumber(ModID)));
+  OnModPackagingFailed();
+}
 
-  const FText PackagingText = LOCTEXT("SimpleUGCEditor_PackagePluginTaskName",
-    "Preparing");
-  IUATHelperModule::Get().CreateUatTask(
-    CommandLine,
-    LOCTEXT("SimpleUGCEditor_PackageGeneral", "Mod Package Process"),
-    PackagingText,
-    PackagingText,
-    FCFEditorStyle::Get().GetBrush(TEXT("cfeditor.ShareUGC")),
-#if ENGINE_MAJOR_VERSION >= 5
-    nullptr,
-#endif
-    [this, OutAvailableGameMods, ModID, BuildPlatforms](FString TaskResult,
-      double TimeSec) {
-        AsyncTask(ENamedThreads::GameThread, [this,
-          TaskResult,
-          OutAvailableGameMods,
-          ModID,
-          BuildPlatforms]() {
-            if (TaskResult == "Completed") {
-              for (TSharedRef<IPlugin> AvailableMod : OutAvailableGameMods) {
-                const FCFModData ModData = GetPluginData(AvailableMod);
-                if (ModData.Id == ModID) {
-                  FPluginDescriptor Descriptor = AvailableMod->GetDescriptor();
-                  Descriptor.Version = Descriptor.Version++;
-                  Descriptor.VersionName = FGuid::NewGuid().ToString();
-                  Descriptor.Category = "UGC";
-                  if (!UpdatePluginDescriptor(Descriptor, AvailableMod)) {
-                    return;
-                  }
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::ShowCookedUploadFailure(const FText& ErrorText) {
+  ShowConfirmationDialog(
+    LOCTEXT("CookedUploadFailureTitle", "Cooked Upload Failure"),
+    ErrorText);
+  OnCookedModFilesUploadFailed();
+}
 
-                  SaveAndPackagePlugin(AvailableMod, BuildPlatforms);
-                  return;
-                }
-              }
-            }
-            else {
-              ShowConfirmationDialog(LOCTEXT("buildfailtitle", "Couldn't Build UGC"), LOCTEXT("buildfail", "Your ugc failed to build. Please check the output log for more information."));
-              OnModPackagingFailed();
-            }
-          });
+// -----------------------------------------------------------------------------
+bool UCFUploadWidget::ValidateCookedUploadInputs(
+  const int64 FileId,
+  const FString& Path,
+  const TArray<FCModPlatformData>& BuildPlatforms) {
+
+  if (BuildPlatforms.Num() <= 0) {
+    ShowCookedUploadFailure(
+      LOCTEXT("CookedUploadNoPlatforms",
+              "No build platforms were selected for "
+              "cooked upload."));
+    return false;
+  }
+
+  if (FileId > (uint64)MAX_int64) {
+    ShowCookedUploadFailure(
+      LOCTEXT("CookedUploadInvalidSourceFileId",
+              "The source file id is out of range."));
+    return false;
+  }
+
+  if (!FPaths::DirectoryExists(Path)) {
+    ShowCookedUploadFailure(
+      LOCTEXT("CookedUploadInvalidPath",
+              "The cooked output path does not exist."));
+    return false;
+  }
+
+  if (!cfcore::CFCoreContext::GetInstance()->IsInitialized()) {
+    ShowCookedUploadFailure(
+      LOCTEXT("CookedUploadNotInitialized",
+              "CFCore is not initialized."));
+    return false;
+  }
+
+  return true;
+}
+
+// TODO(apliscov): Refactor this function - the recursive pattern makes
+// it hard to follow.
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::UploadCookedModFilesWithSettings(
+  const int64 FileId,
+  const FString& Version,
+  const FString& Path,
+  TArray<FCModPlatformData> BuildPlatforms,
+  const int64 ModID) {
+
+  if (!ValidateCookedUploadInputs(FileId, Path, BuildPlatforms)) {
+    return;
+  }
+
+  const UEnum* CFCorePlatformEnum = StaticEnum<ECFCorePlatform>();
+  if (CFCorePlatformEnum == nullptr) {
+    ShowCookedUploadFailure(
+      LOCTEXT("CookedUploadPlatformEnumMissing",
+              "Unable to resolve platform enum names."));
+    return;
+  }
+
+  const FString ModName = FPaths::GetCleanFilename(Path);
+  const FString SafeModName = ModName.IsEmpty() ? TEXT("Mod") : ModName;
+  const FString SafeVersion = Version.IsEmpty() ? TEXT("1.0") : Version;
+  const FString SafeVersionForFilename = FPaths::MakeValidFileName(SafeVersion);
+
+  TArray<FCookedUploadTask> UploadTasks;
+  FText BuildError;
+
+  bool bBuildTasksSuccess = BuildCookedUploadTasks(
+    BuildPlatforms,
+    Path,
+    SafeModName,
+    SafeVersionForFilename,
+    CFCorePlatformEnum,
+    UploadTasks,
+    BuildError);
+
+  if (!bBuildTasksSuccess) {
+    ShowCookedUploadFailure(BuildError);
+    return;
+  }
+
+  LogCookedUploadTasks(UploadTasks);
+
+  TWeakObjectPtr<UCFUploadWidget> WeakThis(this);
+  const int64 SourceFileId = (int64)FileId;
+  TSharedRef<TArray<FString>> ArchiveFiles = MakeShared<TArray<FString>>();
+  TSharedPtr<TFunction<void(int32)>> UploadNextPlatform = MakeShared<TFunction<void(int32)>>();
+  TWeakPtr<TFunction<void(int32)>> WeakUploadNextPlatform = UploadNextPlatform;
+  ActiveCookedUploadNextPlatform = UploadNextPlatform;
+
+  *UploadNextPlatform = [WeakThis,
+                         UploadTasks,
+                         ArchiveFiles,
+                         WeakUploadNextPlatform,
+                         ModID,
+                         FileId](int32 PlatformIndex) {
+
+    if (!WeakThis.IsValid()) {
+      return;
+    }
+
+    if (PlatformIndex >= UploadTasks.Num()) {
+      AsyncTask(ENamedThreads::GameThread, [WeakThis, ArchiveFiles]() {
+        if (WeakThis.IsValid()) {
+          WeakThis->HandleCookedUploadAllComplete(ArchiveFiles);
+        }
+      });
+      return;
+    }
+
+    const FCookedUploadTask CurrentTask = UploadTasks[PlatformIndex];
+    const FString SourceDirectory = FPaths::ConvertRelativePathToFull(CurrentTask.PackagedModDirectory);
+    const FString TargetArchivePath = FPaths::ConvertRelativePathToFull(CurrentTask.ArchiveFilename);
+
+    UE_LOG(
+      LogTemp,
+      Log,
+      TEXT("CookedUpload ZipStart Platform='%s' SourceDir='%s' SourceExists=%s TargetArchive='%s'"),
+      *CurrentTask.PlatformFolderName,
+      *SourceDirectory,
+      FPaths::DirectoryExists(SourceDirectory) ? TEXT("true") : TEXT("false"),
+      *TargetArchivePath);
+
+    LogCookedArchiveState(TEXT("BeforeZip"), TargetArchivePath);
+
+    IFileManager& FileManager = IFileManager::Get();
+    if (FPaths::FileExists(TargetArchivePath)) {
+      const bool bDeleted = FileManager.Delete(*TargetArchivePath);
+      UE_LOG(
+        LogTemp,
+        Log,
+        TEXT("CookedUpload DeleteExistingArchive Path='%s' Deleted=%s"),
+        *TargetArchivePath,
+        bDeleted ? TEXT("true") : TEXT("false"));
+    }
+
+    auto FilesToZip = MakeShared<TArray<FString>>(TArray<FString>{ SourceDirectory });
+    auto ZipFuture = cfcore::CFCoreContext::GetInstance()->Utils()->Compression()->Zip(
+      FilesToZip,
+      TargetArchivePath,
+      cfcore::ICompressionService::FProgressDelegate::CreateLambda(
+        [CurrentTask](const FCompressionProgress& Progress) {
+          UE_LOG(
+            LogTemp,
+            Verbose,
+            TEXT("Archive cooked platform %s progress: %d%%"),
+            *CurrentTask.PlatformFolderName,
+            Progress.progress);
+        }
+      )
+    );
+
+    ZipFuture.Next([WeakThis,
+                    UploadTasks,
+                    ArchiveFiles,
+                    WeakUploadNextPlatform,
+                    CurrentTask,
+                    PlatformIndex,
+                    ModID,
+                    FileId](ECompressionError CompressionError) {
+
+      if (!WeakThis.IsValid()) {
+        return;
+      }
+
+      UE_LOG(
+        LogTemp,
+        Log,
+        TEXT("CookedUpload ZipComplete Platform='%s' CompressionError=%d"),
+        *CurrentTask.PlatformFolderName,
+        static_cast<int32>(CompressionError));
+      LogCookedArchiveState(TEXT("AfterZip"), CurrentTask.ArchiveFilename);
+
+      if (CompressionError != ECompressionError::None) {
+        AsyncTask(ENamedThreads::GameThread, [WeakThis, ArchiveFiles, CurrentTask]() {
+          if (!WeakThis.IsValid()) {
+            return;
+          }
+
+          WeakThis->ActiveCookedUploadNextPlatform.Reset();
+          CleanupCookedArchivesOnFailure(ArchiveFiles);
+          const FText ErrorText = FText::Format(
+            LOCTEXT("CookedUploadZipFailed", "Failed to package cooked files for platform {0}."),
+            CurrentTask.BuildPlatform.PlatformName);
+          WeakThis->ShowConfirmationDialog(
+            LOCTEXT("CookedUploadFailureTitle", "Cooked Upload Failure"),
+            ErrorText);
+          WeakThis->OnCookedModFilesUploadFailed();
+        });
+        return;
+      }
+
+      AsyncTask(ENamedThreads::GameThread, [WeakThis,
+                                            UploadTasks,
+                                            ArchiveFiles,
+                                            WeakUploadNextPlatform,
+                                            CurrentTask,
+                                            PlatformIndex,
+                                            ModID,
+                                            FileId]() {
+        if (WeakThis.IsValid()) {
+          WeakThis->HandleCookedZipComplete(
+            UploadTasks, ArchiveFiles, WeakUploadNextPlatform,
+            CurrentTask, PlatformIndex, ModID, FileId);
+        }
+      });
     });
+  };
+
+  (*UploadNextPlatform)(0);
+}
+
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::HandleCookedUploadAllComplete(
+  const TSharedRef<TArray<FString>>& ArchiveFiles) {
+
+  ActiveCookedUploadNextPlatform.Reset();
+  FFileTransferProgress CompletedProgress;
+  CompletedProgress.progress = 100;
+  OnCookedModFilesUploadProgress(CompletedProgress);
+  OnCookedModFilesUploadComplete();
+  CleanupCookedArchives(ArchiveFiles);
+}
+
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::HandleCookedZipComplete(
+  const TArray<FCookedUploadTask>& UploadTasks,
+  const TSharedRef<TArray<FString>>& ArchiveFiles,
+  const TWeakPtr<TFunction<void(int32)>>& WeakUploadNextPlatform,
+  const FCookedUploadTask& CurrentTask,
+  int32 PlatformIndex,
+  int64 ModID,
+  int64 FileId) {
+
+  if (!cfcore::CFCoreContext::GetInstance()->IsInitialized()) {
+    ActiveCookedUploadNextPlatform.Reset();
+    CleanupCookedArchivesOnFailure(ArchiveFiles);
+    ShowConfirmationDialog(
+      LOCTEXT("CookedUploadFailureTitle", "Cooked Upload Failure"),
+      LOCTEXT("CookedUploadNotInitialized", "CFCore is not initialized."));
+    OnCookedModFilesUploadFailed();
+    return;
+  }
+
+  const FString ExpectedArchivePath = FPaths::ConvertRelativePathToFull(CurrentTask.ArchiveFilename);
+  const int64 ArchiveSizeBytes = IFileManager::Get().FileSize(*ExpectedArchivePath);
+  if (!FPaths::FileExists(ExpectedArchivePath) || ArchiveSizeBytes <= 0) {
+    TArray<FString> MatchingArchivePaths;
+    const FString ArchiveSearchRoot = FPaths::GetPath(ExpectedArchivePath);
+    if (FPaths::DirectoryExists(ArchiveSearchRoot)) {
+      IFileManager::Get().FindFilesRecursive(
+        MatchingArchivePaths,
+        *ArchiveSearchRoot,
+        *FPaths::GetCleanFilename(ExpectedArchivePath),
+        true,
+        false,
+        false);
+    }
+
+    const FString DiscoveryMessage = MatchingArchivePaths.Num() <= 0
+      ? TEXT("No archive with this name was found under the expected output directory.")
+      : FString::Printf(
+        TEXT("Archive with matching name was found at:\n%s"),
+        *FString::Join(MatchingArchivePaths, TEXT("\n")));
+
+    UE_LOG(
+      LogTemp,
+      Error,
+      TEXT("Cooked archive missing/invalid. Expected='%s' Size=%lld. %s"),
+      *ExpectedArchivePath,
+      ArchiveSizeBytes,
+      *DiscoveryMessage);
+
+    ActiveCookedUploadNextPlatform.Reset();
+    CleanupCookedArchivesOnFailure(ArchiveFiles);
+    const FText ErrorText = FText::Format(
+      LOCTEXT(
+        "CookedUploadArchiveMissing",
+        "Cooked archive was not created at the expected path.\nExpected:\n{0}\n\n{1}"),
+      FText::FromString(ExpectedArchivePath),
+      FText::FromString(DiscoveryMessage));
+    ShowConfirmationDialog(
+      LOCTEXT("CookedUploadFailureTitle", "Cooked Upload Failure"),
+      ErrorText);
+    OnCookedModFilesUploadFailed();
+    return;
+  }
+
+  UE_LOG(
+    LogTemp,
+    Log,
+    TEXT("CookedUpload CreateCookedModFile Platform='%s' ModId=%lld FileId=%lld Archive='%s' SizeBytes=%lld"),
+    *CurrentTask.PlatformFolderName,
+    ModID,
+    FileId,
+    *ExpectedArchivePath,
+    ArchiveSizeBytes);
+  LogCookedArchiveState(TEXT("BeforeCreateCookedModFile"), ExpectedArchivePath);
+
+  TWeakObjectPtr<UCFUploadWidget> WeakThis(this);
+  ArchiveFiles->Add(ExpectedArchivePath);
+  cfcore::CFCoreContext::GetInstance()->Creation()->CreateCookedModFile(
+    ModID,
+    FileId,
+    CurrentTask.Request,
+    ExpectedArchivePath,
+    cfcore::ICFCoreCreation::FCreateModFileRequestIdDelegate::CreateLambda(
+      [CurrentTask, ExpectedArchivePath](int64 FileRequestId) {
+        UE_LOG(
+          LogTemp,
+          Log,
+          TEXT("Started cooked upload for %s. RequestId=%lld Archive='%s'"),
+          *CurrentTask.PlatformFolderName,
+          FileRequestId,
+          *ExpectedArchivePath);
+      }),
+    cfcore::ICFCoreCreation::FFileTransferProgressDelegate::CreateLambda(
+      [WeakThis, PlatformIndex, TotalPlatforms = UploadTasks.Num()](const FFileTransferProgress& Progress) {
+        if (!WeakThis.IsValid()) {
+          return;
+        }
+
+        const FFileTransferProgress AggregatedProgress = GetAggregatedProgress(
+          Progress,
+          PlatformIndex,
+          TotalPlatforms);
+
+        AsyncTask(ENamedThreads::GameThread, [WeakThis, AggregatedProgress]() {
+          if (WeakThis.IsValid()) {
+            WeakThis->OnCookedModFilesUploadProgress(AggregatedProgress);
+          }
+        });
+      }),
+    cfcore::ICFCoreCreation::FCreateModFileDelegate::CreateLambda(
+      [WeakThis,
+       ArchiveFiles,
+       WeakUploadNextPlatform,
+       CurrentTask,
+       PlatformIndex](const TOptional<FUploadedModFile>& OptUploadedModFile,
+                      const TOptional<FCFCoreError>& OptError) {
+
+        AsyncTask(ENamedThreads::GameThread, [WeakThis,
+                                              ArchiveFiles, 
+                                              WeakUploadNextPlatform, 
+                                              CurrentTask,
+                                              PlatformIndex,
+                                              OptUploadedModFile,
+                                              OptError]() {
+          if (WeakThis.IsValid()) {
+            WeakThis->HandleCookedUploadFileComplete(
+              ArchiveFiles, WeakUploadNextPlatform,
+              CurrentTask, PlatformIndex,
+              OptUploadedModFile, OptError);
+          }
+        });
+      }
+    )
+  );
+}
+
+// -----------------------------------------------------------------------------
+void UCFUploadWidget::HandleCookedUploadFileComplete(
+  const TSharedRef<TArray<FString>>& ArchiveFiles,
+  const TWeakPtr<TFunction<void(int32)>>& WeakUploadNextPlatform,
+  const FCookedUploadTask& CurrentTask,
+  int32 PlatformIndex,
+  const TOptional<FUploadedModFile>& OptUploadedModFile,
+  const TOptional<FCFCoreError>& OptError) {
+
+  if (OptError.IsSet()) {
+    UE_LOG(
+      LogTemp,
+      Error,
+      TEXT("CookedUpload CreateCookedModFile failed Platform='%s' Archive='%s'"
+           " CFCoreCode = %d ApiErrorCode = %d Description = '%s'"),
+      *CurrentTask.PlatformFolderName,
+      *CurrentTask.ArchiveFilename,
+      static_cast<int32>(OptError->code),
+      OptError->apiError.errorCode,
+      *OptError->description);
+    LogCookedArchiveState(TEXT("OnUploadErrorBeforeCleanup"), CurrentTask.ArchiveFilename);
+
+    ActiveCookedUploadNextPlatform.Reset();
+    CleanupCookedArchivesOnFailure(ArchiveFiles);
+    const FString ErrorDescription = OptError->description.IsEmpty()
+      ? TEXT("Unknown upload error.")
+      : OptError->description;
+    const FText ErrorText = FText::Format(
+      LOCTEXT("CookedUploadApiFailed", "Failed to upload cooked file for platform {0}.\n{1}"),
+      CurrentTask.BuildPlatform.PlatformName,
+      FText::FromString(ErrorDescription));
+    ShowConfirmationDialog(
+      LOCTEXT("CookedUploadFailureTitle", "Cooked Upload Failure"),
+      ErrorText);
+    OnCookedModFilesUploadFailed();
+    return;
+  }
+
+  if (OptUploadedModFile.IsSet()) {
+    UE_LOG(
+      LogTemp,
+      Log,
+      TEXT("Finished cooked upload for %s. UploadedFileId=%lld"),
+      *CurrentTask.PlatformFolderName,
+      OptUploadedModFile->fileId);
+  }
+
+  TSharedPtr<TFunction<void(int32)>> NextPlatform = WeakUploadNextPlatform.Pin();
+  if (NextPlatform) {
+    (*NextPlatform)(PlatformIndex + 1);
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -205,6 +618,74 @@ void UCFUploadWidget::PostUploadCleanup(const FCFModData& ModData) {
   if (FPaths::ValidatePath(FullPath) && FPaths::FileExists(FullPath)) {
     IFileManager& FileManager = IFileManager::Get();
     FileManager.Delete(*FullPath);
+  }
+  
+  const FString PluginPath = ModData.Path;
+  if (!FPaths::DirectoryExists(PluginPath)) {
+    ShowConfirmationDialog(
+      LOCTEXT("CleanPluginFolderInvalidPathTitle", "Cleanup Failed"),
+      LOCTEXT("CleanPluginFolderInvalidPath", "Plugin path does not exist."));
+    return;
+  }
+
+  TSet<FString> DirectoryNamesToDelete;
+  DirectoryNamesToDelete.Add(TEXT("Saved"));
+
+  const UEnum* CFCorePlatformEnum = StaticEnum<ECFCorePlatform>();
+  if (CFCorePlatformEnum) {
+    for (int32 Index = 0; Index < CFCorePlatformEnum->NumEnums(); ++Index) {
+      const int64 Value = CFCorePlatformEnum->GetValueByIndex(Index);
+      if (Value == INDEX_NONE || Value == static_cast<int64>(ECFCorePlatform::None)) {
+        continue;
+      }
+
+      const FString EnumName = CFCorePlatformEnum->GetNameStringByValue(Value);
+      if (!EnumName.IsEmpty() && !EnumName.EndsWith(TEXT("_MAX"))) {
+        DirectoryNamesToDelete.Add(EnumName);
+      }
+    }
+  }
+
+  const UEnum* BuildPlatformEnum = StaticEnum<EBuildPlatforms>();
+  if (BuildPlatformEnum) {
+    for (int32 Index = 0; Index < BuildPlatformEnum->NumEnums(); ++Index) {
+      const int64 Value = BuildPlatformEnum->GetValueByIndex(Index);
+      if (Value == INDEX_NONE) {
+        continue;
+      }
+
+      const FString EnumName = BuildPlatformEnum->GetNameStringByValue(Value);
+      if (!EnumName.IsEmpty() && !EnumName.EndsWith(TEXT("_MAX"))) {
+        DirectoryNamesToDelete.Add(EnumName);
+
+        if (EnumName.Equals(TEXT("WIN"), ESearchCase::IgnoreCase) ||
+          EnumName.Equals(TEXT("LINUX"), ESearchCase::IgnoreCase)) {
+          DirectoryNamesToDelete.Add(EnumName + TEXT("Server"));
+        }
+      }
+    }
+  }
+
+  IFileManager& FileManager = IFileManager::Get();
+  TArray<FString> FailedDirectories;
+  for (const FString& DirectoryName : DirectoryNamesToDelete) {
+    const FString DirectoryPath = FPaths::Combine(PluginPath, DirectoryName);
+    if (!FPaths::DirectoryExists(DirectoryPath)) {
+      continue;
+    }
+
+    const bool bDeleted = FileManager.DeleteDirectory(*DirectoryPath, false, true);
+    if (!bDeleted && FPaths::DirectoryExists(DirectoryPath)) {
+      FailedDirectories.Add(DirectoryPath);
+    }
+  }
+
+  if (FailedDirectories.Num() > 0) {
+    ShowConfirmationDialog(
+      LOCTEXT("CleanPluginFolderPartialFailureTitle", "Cleanup Incomplete"),
+      FText::Format(
+        LOCTEXT("CleanPluginFolderPartialFailure", "Failed to remove the following folders:\n{0}"),
+        FText::FromString(FString::Join(FailedDirectories, TEXT("\n")))));
   }
 }
 
@@ -542,7 +1023,7 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
   }
 
   const FText PlatformName = BuildPlatforms[0].PlatformName;
-  const FString ReleaseVersion = TEXT("UGCExampleGame_v1");
+  const FString ReleaseVersion = TEXT("Istari");
   const FString ServerText = BuildPlatforms[0].bIsServer ? "true" : "false";
   const FString CommandLine = FString::Printf(TEXT("PackageUGC -Project=\"%s\" -PluginPath=\"%s\" -basedonreleaseversion=\"%s\" -StagingDirectory=\"%s\" -Server=\"%s\" -Platform=\"%s\" -nocompile"),
     *FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()),
@@ -588,7 +1069,8 @@ void UCFUploadWidget::PackagePlugin(TSharedRef<class IPlugin> Plugin,
 
 // -----------------------------------------------------------------------------
 void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
-                                    const FString& ZipFileName) {
+                                    const FString& ZipFileName,
+                                    bool bNotifyCallbacks) {
 
   auto FilesToZip = MakeShared<TArray<FString>>(
     TArray<FString>{OutputDirectory});
@@ -606,7 +1088,11 @@ void UCFUploadWidget::ArchivePlugin(const FString& OutputDirectory,
     })
   );
 
-  f.Next([this](ECompressionError Error) {
+  f.Next([this, bNotifyCallbacks](ECompressionError Error) {
+    if (!bNotifyCallbacks) {
+      return;
+    }
+
     if (Error == ECompressionError::None) {
       OnModPackagingComplete();
       return;

@@ -25,128 +25,166 @@ SOFTWARE.*/
 #include "CoreMinimal.h"
 #include "EditorUtilityWidget.h"
 #include "api/models/creation/create_mod_file_request.h"
+#include "api/models/creation/create_cooked_mod_file_request.h"
 #include "api/models/creation/create_mod_request.h"
+#include "api/models/file_transfer_progress.h"
 #include "api/models/category.h"
 #include "api/models/mod.h"
+#include "api/models/creation/uploaded_mod_file.h"
+#include "common/cfcore_error.h"
 #include "cfuploadwidget.generated.h"
 
 USTRUCT(Blueprintable)
 struct FCFModData {
-	GENERATED_USTRUCT_BODY()
+  GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	int64 Id = -1;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString Name = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString FriendlyName = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString LogoPath = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString Summary = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString Description = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString HomepageURL = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString Version = "1.0";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString Path = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FString MarketplaceURL = "";
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bIsValid = false;
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  int64 Id = -1;
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString Name = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString FriendlyName = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString LogoPath = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString Summary = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString Description = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString HomepageURL = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString Version = "1.0";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString Path = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FString MarketplaceURL = "";
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  bool bIsValid = false;
 };
 
 UENUM(BlueprintType)
 enum class EBuildPlatforms : uint8 {
-	PS4,
-	PS5,
-	XB1,
-	XSX,
-	MAC,
-	WIN,
-	LINUX,
+  PS4,
+  PS5,
+  XB1,
+  XSX,
+  MAC,
+  WIN,
+  LINUX,
 };
 
 USTRUCT(Blueprintable)
 struct FCModPlatformData {
-	GENERATED_USTRUCT_BODY()
+  GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	EBuildPlatforms BuildPlatform = EBuildPlatforms::WIN;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	FText PlatformName = NSLOCTEXT("LEAP", "PlatformName_Windows", "Windows Client");
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bIsServer = false;
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  EBuildPlatforms BuildPlatform = EBuildPlatforms::WIN;
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  FText PlatformName = NSLOCTEXT("LEAP", "PlatformName_Windows", "Windows Client");
+  UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+  bool bIsServer = false;
 
-	uint32 GetTypeHash(const FCModPlatformData& ModPlatformData) { return HashCombine((uint32)ModPlatformData.BuildPlatform, (uint32)bIsServer); }
+  uint32 GetTypeHash(const FCModPlatformData& ModPlatformData) { return HashCombine((uint32)ModPlatformData.BuildPlatform, (uint32)bIsServer); }
 };
 
 UCLASS(Config=ModConfig)
 class UCFUploadWidget : public UEditorUtilityWidget {
-	GENERATED_BODY()
+  GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable, Category = "FilePicker")
-	void OpenFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, FString& OutputPath, bool bIsDirectory);
-	UFUNCTION(BlueprintCallable)
-	void ShowConfirmationDialog(const FText& DialogTitle, const FText& DialogText);
-	UFUNCTION(BlueprintCallable)
-	void UpdatePluginWithModData(const FCFCoreMod& Mod, ECFCoreAutoCookingType AutoCookingType);
-	UFUNCTION(BlueprintCallable)
-	void PackageModWithSettings(const int64 ModID, const FString& Version, const FString& Path, TArray<FCModPlatformData> BuildPlatforms);
-	UFUNCTION(BlueprintCallable)
-	void CloseTab();
-	UFUNCTION(BlueprintCallable)
-	void PostUploadCleanup(const FCFModData& ModData);
+  UFUNCTION(BlueprintCallable, Category = "FilePicker")
+  void OpenFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, FString& OutputPath, bool bIsDirectory);
   UFUNCTION(BlueprintCallable)
-	void ArchivePlugin(const FString& OutputDirectory,
-                     const FString& ZipFileName);
-	UFUNCTION(BlueprintPure)
-	const TArray<FCategory>& GetRootCategories() const;
-	UFUNCTION(BlueprintPure)
-	const TArray<FCategory>& GetSubCategories(const int64 ClassID) const;
-	UFUNCTION(BlueprintPure)
-	const FCategory& GetRootCategoryByName(const FString& Name) const;
-	UFUNCTION(BlueprintPure)
-	const FCategory& GetSubCategoryByName(const int64 ClassID, const FString& Name) const;
-	UFUNCTION(BlueprintPure)
-	FCFModData GetModDataByName(const FString& Name);
-	UFUNCTION(BlueprintPure)
-	ECFCoreAutoCookingType GetModAutoCookingTypeByName(const FString& Name);
-	UFUNCTION(BlueprintPure)
-	FCFModData GetModById(const int32 Id);
+  void ShowConfirmationDialog(const FText& DialogTitle, const FText& DialogText);
+  UFUNCTION(BlueprintCallable)
+  void UpdatePluginWithModData(const FCFCoreMod& Mod, ECFCoreAutoCookingType AutoCookingType);
+  UFUNCTION(BlueprintCallable)
+  void PackageModWithSettings(const int64 ModID, const FString& Version, const FString& Path, TArray<FCModPlatformData> BuildPlatforms);
+  UFUNCTION(BlueprintCallable)
+  void UploadCookedModFilesWithSettings(const int64 FileId, const FString& Version, const FString& Path, TArray<FCModPlatformData> BuildPlatforms, const int64 ModID);
+  UFUNCTION(BlueprintCallable)
+  void CloseTab();
+  UFUNCTION(BlueprintCallable)
+  void PostUploadCleanup(const FCFModData& ModData);
+  UFUNCTION(BlueprintCallable)
+  void ArchivePlugin(const FString& OutputDirectory,
+                     const FString& ZipFileName,
+                     bool bNotifyCallbacks = true);
+  UFUNCTION(BlueprintPure)
+  const TArray<FCategory>& GetRootCategories() const;
+  UFUNCTION(BlueprintPure)
+  const TArray<FCategory>& GetSubCategories(const int64 ClassID) const;
+  UFUNCTION(BlueprintPure)
+  const FCategory& GetRootCategoryByName(const FString& Name) const;
+  UFUNCTION(BlueprintPure)
+  const FCategory& GetSubCategoryByName(const int64 ClassID, const FString& Name) const;
+  UFUNCTION(BlueprintPure)
+  FCFModData GetModDataByName(const FString& Name);
+  UFUNCTION(BlueprintPure)
+  ECFCoreAutoCookingType GetModAutoCookingTypeByName(const FString& Name);
+  UFUNCTION(BlueprintPure)
+  FCFModData GetModById(const int32 Id);
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void AddModDataToUI(const FCFModData& ModData);
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnModPackagingFailed();
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnModPackagingComplete();
+  UFUNCTION(BlueprintImplementableEvent)
+  void AddModDataToUI(const FCFModData& ModData);
+  UFUNCTION(BlueprintImplementableEvent)
+  void OnModPackagingFailed();
+  UFUNCTION(BlueprintImplementableEvent)
+  void OnModPackagingComplete();
+  UFUNCTION(BlueprintImplementableEvent)
+  void OnCookedModFilesUploadFailed();
+  UFUNCTION(BlueprintImplementableEvent)
+  void OnCookedModFilesUploadComplete();
+  UFUNCTION(BlueprintImplementableEvent)
+  void OnCookedModFilesUploadProgress(const FFileTransferProgress& Progress);
 
-	static TMap<int64, TArray<FCategory>> Categories;
-	static TArray<FCategory> RootCategories;
-	static TArray<FCategory> EmptyCategoryList;
-	static FName TabId;
-	FCategory InvalidCategory;
+  static TMap<int64, TArray<FCategory>> Categories;
+  static TArray<FCategory> RootCategories;
+  static TArray<FCategory> EmptyCategoryList;
+  static FName TabId;
+  FCategory InvalidCategory;
 
 private:
-	bool UpdatePluginDescriptor(const struct FPluginDescriptor& PluginDescriptor, TSharedRef<class IPlugin> Plugin);
-	void NativeConstruct() override;
-	FCFModData GetPluginData(TSharedRef<class IPlugin>);
-	FString ExtractDescription(TSharedRef<class IPlugin> Plugin);
-	int64 ExtractUgcIdFromPlugin(TSharedRef<class IPlugin> Plugin);
-	ECFCoreAutoCookingType ExtractAutoCookingTypeFromPlugin(TSharedRef<class IPlugin> Plugin);
-	void InsertUgcIdIntoPlugin(TSharedRef<class IPlugin> Plugin, int64 id);
-	void InsertAutoCookingTypeIntoPlugin(TSharedRef<class IPlugin> Plugin, ECFCoreAutoCookingType AutoCookingType);
-	bool IsAllContentSaved(TSharedRef<IPlugin> Plugin);
-	void SaveAndPackagePlugin(TSharedRef<IPlugin> Plugin, TArray<FCModPlatformData> BuildPlatforms);
-	void PackagePlugin(TSharedRef<IPlugin> Plugin, const FString& OutputDirectory, TArray<FCModPlatformData>& BuildPlatforms);
-	bool TryLoadPluginDescriptor(FString& JsonContent,
-															 FString& PluginDescriptorPath);
 
-	bool TryParseJsonPluginDescriptor(FString& JsonContent,
-																		TSharedPtr<FJsonObject>& JsonObject,
-																		FString& PluginDescriptorPath);
+  bool UpdatePluginDescriptor(const struct FPluginDescriptor& PluginDescriptor, TSharedRef<class IPlugin> Plugin);
+  void NativeConstruct() override;
+  FCFModData GetPluginData(TSharedRef<class IPlugin>);
+  FString ExtractDescription(TSharedRef<class IPlugin> Plugin);
+  int64 ExtractUgcIdFromPlugin(TSharedRef<class IPlugin> Plugin);
+  ECFCoreAutoCookingType ExtractAutoCookingTypeFromPlugin(TSharedRef<class IPlugin> Plugin);
+  void InsertUgcIdIntoPlugin(TSharedRef<class IPlugin> Plugin, int64 id);
+  void InsertAutoCookingTypeIntoPlugin(TSharedRef<class IPlugin> Plugin, ECFCoreAutoCookingType AutoCookingType);
+  bool IsAllContentSaved(TSharedRef<IPlugin> Plugin);
+  void SaveAndPackagePlugin(TSharedRef<IPlugin> Plugin, TArray<FCModPlatformData> BuildPlatforms);
+  void PackagePlugin(TSharedRef<IPlugin> Plugin, const FString& OutputDirectory, TArray<FCModPlatformData>& BuildPlatforms);
+  bool ValidateCookedUploadInputs(const int64 FileId, const FString& Path, const TArray<FCModPlatformData>& BuildPlatforms);
+  void ShowCookedUploadFailure(const FText& ErrorText);
+  bool TryLoadPluginDescriptor(FString& JsonContent,
+                               FString& PluginDescriptorPath);
+
+  bool TryParseJsonPluginDescriptor(FString& JsonContent,
+                                    TSharedPtr<FJsonObject>& JsonObject,
+                                    FString& PluginDescriptorPath);
+
+  void HandleCookedUploadAllComplete(
+    const TSharedRef<TArray<FString>>& ArchiveFiles);
+
+  void HandleCookedZipComplete(
+    const TArray<struct FCookedUploadTask>& UploadTasks,
+    const TSharedRef<TArray<FString>>& ArchiveFiles,
+    const TWeakPtr<TFunction<void(int32)>>& WeakUploadNextPlatform,
+    const struct FCookedUploadTask& CurrentTask,
+    int32 PlatformIndex,
+    int64 ModID,
+    int64 FileId);
+
+  void HandleCookedUploadFileComplete(
+    const TSharedRef<TArray<FString>>& ArchiveFiles,
+    const TWeakPtr<TFunction<void(int32)>>& WeakUploadNextPlatform,
+    const struct FCookedUploadTask& CurrentTask,
+    int32 PlatformIndex,
+    const TOptional<FUploadedModFile>& OptUploadedModFile,
+    const TOptional<FCFCoreError>& OptError);
+
+  TSharedPtr<TFunction<void(int32)>> ActiveCookedUploadNextPlatform;
 };
